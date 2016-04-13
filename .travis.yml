@@ -1,0 +1,40 @@
+os:
+    - linux
+
+sudo: false
+
+env:
+    global:
+        - PYTHON_VERSION=3.5
+        - NUMPY_VERSION=1.10
+        - MINICONDA_URL=http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh
+
+
+matrix:
+    include:
+        - env: PYTHON_VERSION=2.7 NUMPY_VERSION=1.8
+        - env: PYTHON_VERSION=2.7 NUMPY_VERSION=1.9
+        - env: PYTHON_VERSION=2.7 NUMPY_VERSION=1.10
+        - env: PYTHON_VERSION=3.4 NUMPY_VERSION=1.10
+        - os: osx
+          env: PYTHON_VERSION=2.7 NUMPY_VERSION=1.10
+               MINICONDA_URL=http://repo.continuum.io/miniconda/Miniconda-3.7.3-MacOSX-x86_64.sh
+        - os: osx
+          env: PYTHON_VERSION=3.5 NUMPY_VERSION=1.10
+               MINICONDA_URL=http://repo.continuum.io/miniconda/Miniconda-3.7.3-MacOSX-x86_64.sh
+
+before_install:
+    - wget $MINICONDA_URL -O miniconda.sh
+    - chmod +x miniconda.sh
+    - ./miniconda.sh -b -p $HOME/miniconda
+    - export PATH="$HOME/miniconda/bin:$PATH"
+    - conda update --yes conda
+    - conda create --yes -n test python=$PYTHON_VERSION
+    - source activate test
+    - conda install --yes numpy=$NUMPY_VERSION cython pytest
+
+install:
+    - python setup.py install
+
+script:
+    - ./test.py
