@@ -1,7 +1,6 @@
-# Licensed under a 3-clause BSD style license - see LICENSE.rst
-
-"""Extinction law functions."""
+"""Interstellar dust extinction functions."""
 import numpy as np
+from scipy.interpolate import splmake, spleval
 
 __version__ = "0.1.0.dev"
 
@@ -17,8 +16,8 @@ cdef double *od94_coeffs_a = [1., 0.104, -0.609, 0.701, 1.137, -1.718,
 cdef double *od94_coeffs_b = [0., 1.952, 2.908, -3.989, -7.985, 11.102,
                               5.491, -10.805, 3.347]
 
-cdef double ccm89like(double wave, double r_v, double optical_coeffs_a[],
-                      double optical_coeffs_b[], int n):
+cdef double _ccm89like(double wave, double r_v, double optical_coeffs_a[],
+                       double optical_coeffs_b[], int n):
     cdef double x, a, b, y, y2, y3, yn
     cdef int i
     x = 1.e4 / wave
@@ -57,7 +56,7 @@ cdef double ccm89like(double wave, double r_v, double optical_coeffs_a[],
     return a + b / r_v
 
 # UV portion of GCC09 law, used for wave < 3030.30303 (x > 3.3)
-cdef double gcc09uv(double wave, double r_v):
+cdef double _gcc09uv(double wave, double r_v):
     cdef double x, y, y2, y3, a, b
     x = 1.e4/wave
     y = x - 4.57
@@ -72,23 +71,35 @@ cdef double gcc09uv(double wave, double r_v):
         b += 0.537 * y2 + 0.0530 * y3
     return a + b / r_v
 
+
 def ccm89(double[:] wave, double a_v, double r_v):
+    """ccm89(wave, a_v, r_v)
+
+    Cardelli, Clayton & Mathis (1989) dust extinction function.
+    """
+
     cdef int n = wave.shape[0]
     cdef int i
     res = np.empty(n, dtype=np.float)
     for i in range(n):
-        res[i] = a_v * ccm89like(wave[i], r_v, ccm89_coeffs_a,
-                                 ccm89_coeffs_b, ccm89_coeffs_n)
+        res[i] = a_v * _ccm89like(wave[i], r_v, ccm89_coeffs_a,
+                                  ccm89_coeffs_b, ccm89_coeffs_n)
     return res
 
+
 def od94(double[:] wave, double a_v, double r_v):
+    """od94(wave, a_v, r_v)
+
+    O'Donnell (1994) dust extinction function.
+    """
     cdef int n = wave.shape[0]
     cdef int i
     res = np.empty(n, dtype=np.float)
     for i in range(n):
-        res[i] = a_v * ccm89like(wave[i], r_v, od94_coeffs_a, od94_coeffs_b,
-                                 od94_coeffs_n)
+        res[i] = a_v * _ccm89like(wave[i], r_v, od94_coeffs_a, od94_coeffs_b,
+                                  od94_coeffs_n)
     return res
+
 
 def gcc09(double[:] wave, double a_v, double r_v):
     cdef int n = wave.shape[0]
@@ -96,13 +107,16 @@ def gcc09(double[:] wave, double a_v, double r_v):
     res = np.empty(n, dtype=np.float)
     for i in range(n):
         if wave[i] < 3030.3030303030303:
-            res[i] = a_v * gcc09uv(wave[i], r_v)
+            res[i] = a_v * _gcc09uv(wave[i], r_v)
         else:
-            res[i] = a_v * ccm89like(wave[i], r_v, od94_coeffs_a,
-                                     od94_coeffs_b, od94_coeffs_n)
+            res[i] = a_v * _ccm89like(wave[i], r_v, od94_coeffs_a,
+                                      od94_coeffs_b, od94_coeffs_n)
     return res
 
-# These should be the same as in extinction.py
+
+# -----------------------------------------------------------------------------
+# Fitzpatrick 1999
+
 DEF F99_X0 = 4.596
 DEF F99_GAMMA = 0.99
 DEF F99_C3 = 3.23
@@ -112,7 +126,8 @@ DEF F99_X02 = F99_X0 * F99_X0
 DEF F99_GAMMA2 = F99_GAMMA * F99_GAMMA
 
 # Used for wave < 2700.
-def f99uv(double[:] wave, double a_v, double r_v):
+def _f99uv(double[:] wave, double a_v, double r_v):
+    """Fitzpatrick (1999) function for wavelengths < 2700 Angstroms"""
     cdef double c1, c2, d, x, x2, y, y2, rv2, k
     cdef int i, n
 
@@ -135,7 +150,8 @@ def f99uv(double[:] wave, double a_v, double r_v):
 
     return res
 
-def f99kknots(double[:] xknots, double r_v):
+
+def _f99kknots(double[:] xknots, double r_v):
     cdef double c1, c2, d, x, x2, y, rv2
     cdef int i
     c2 =  -0.824 + 4.717 / r_v
@@ -159,7 +175,43 @@ def f99kknots(double[:] xknots, double r_v):
 
     return kknots
 
-# These constants should be the same as in extinction.py
+
+class F99Extinction(object):
+    """Fitzpatrick (1999) dust extinction function with fixed R_V."""
+
+    _XKNOTS = 1.e4 / np.array([np.inf, 26500., 12200., 6000., 5470.,
+                               4670., 4110., 2700., 2600.])
+
+    def __init__(self, r_v=3.1):
+        self.r_v = r_v
+
+        kknots = _f99kknots(self._XKNOTS, r_v)
+        self._spline = splmake(self._XKNOTS, kknots, order=3)
+
+    def __call__(self, wave, a_v):
+        out = np.empty(len(wave), dtype=np.float)
+
+        # Analytic function in the UV.
+        uvmask = wave < 2700.
+        if np.any(uvmask):
+            out[uvmask] = _f99uv(wave[uvmask], a_v, self.r_v)
+
+        # Spline in the Optical/IR
+        oirmask = ~uvmask
+        if np.any(oirmask):
+            k = spleval(self._spline, 1.e4 / wave[oirmask])
+            out[oirmask] = a_v / self.r_v * (k + self.r_v)
+
+        return out
+
+
+def f99(wave, a_v, r_v):
+    return F99Extinction(r_v)(wave, a_v)
+
+
+# -----------------------------------------------------------------------------
+# Fitzpatrick & Massa 2007
+
 DEF FM07_X0 = 4.592
 DEF FM07_GAMMA = 0.922
 DEF FM07_C1 = -0.175
@@ -172,7 +224,7 @@ DEF FM07_GAMMA2 = FM07_GAMMA * FM07_GAMMA
 DEF FM07_R_V = 3.1  # Fixed for the time being (used in fm07kknots)
 
 # Used for wave < 2700.
-def fm07uv(double[:] wave, double a_v):
+def _fm07uv(double[:] wave, double a_v):
     cdef double d, x, x2, y, k
     cdef int i, n
 
@@ -193,7 +245,7 @@ def fm07uv(double[:] wave, double a_v):
 
 # This is mainly defined here rather than as a constant in the public module
 # so that we don't have to define the FM07 constants in two places.
-def fm07kknots(double[:] xknots):
+def _fm07kknots(double[:] xknots):
     cdef double d
     cdef int i, n
 

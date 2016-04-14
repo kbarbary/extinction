@@ -76,3 +76,11 @@ def test_od94():
 
     assert_allclose(extinction.od94(wave, 1.0, 3.1), ref_values,
                     rtol=0.0051, atol=0.)
+
+
+def test_f99():
+    # TODO: find reference values for Fitzpatrick (1999)
+    wave = np.linspace(1000.0, 60000.0, 100)
+    extinction.f99(wave, 1.0, 3.1)
+
+
