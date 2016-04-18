@@ -5,7 +5,29 @@ extinction
 
 [![Build Status](http://img.shields.io/travis/kbarbary/extinction.svg?style=flat-square&label=build)](https://travis-ci.org/kbarbary/extinction)
 
+This module contains Cython-optimized implementations of a few
+empirical dust exitinction laws found in the literature:
+
+- [Cardelli, Clayton and Mathis (1989)](http://adsabs.harvard.edu/abs/1989ApJ...345..245C)
+- [O'Donnell (1994)](http://adsabs.harvard.edu/abs/1994ApJ...422..158O)
+- [Fitzpatrick (1999)](http://adsabs.harvard.edu/abs/1999PASP..111...63F)
+
+## Install
+
+```
+pip install extinction
+```
+
+numpy and scipy are dependencies.
+
+
 ## API
+
+Each function accepts a 1-d numpy array (not a list) of wavelengths and
+some parameters, and returns the extinction in magnitudes at each wavelength.
+The parameters are typically A_V, the total V band extinction in magnitudes
+and R_V. R_V affects the shape of the returned function, while A_V only
+affects its amplitude.
 
 ```python
 import numpy as np
@@ -21,15 +43,13 @@ extinction.ccm89(wave, a_v, r_v)
 # O'Donnell (1994)
 extinction.od94(wave, a_v, r_v)
 
-# Fitzpatrick (1999)
-extinction.f99(wave, a_v, r_v)
+# Fitzpatrick (1999) for R_V = 3.1
+extinction.f99(wave, a_v)
 
 
 # Fitzpatrick (1999) is based on splines, which have to be
-# constructed for a given R_V. If you are calling `f99` multiple
-# times, with the same R_V, you can avoid constructing the spline
-# multiple times as so:
-
+# constructed for a given R_V. To use Fitzpatrick with R_V values other
+# than 3.1:
 f = extinction.F99Extinction(r_v)  # construct once
 f(wave, a_v)  # call multiple times
 
@@ -38,3 +58,8 @@ f(wave, a_v)  # call multiple times
 ## Comparison of functions
 
 ![comparison plot](extinction.png)
+
+
+## License
+
+is MIT.

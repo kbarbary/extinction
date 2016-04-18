@@ -32,4 +32,4 @@ setup(name="extinction",
       author="Kyle Barbary",
       author_email="kylebarbary@gmail.com",
       ext_modules=extensions,
-      requires=["numpy"])
+      requires=["numpy", "scipy"])

@@ -81,6 +81,6 @@ def test_od94():
 def test_f99():
     # TODO: find reference values for Fitzpatrick (1999)
     wave = np.linspace(1000.0, 60000.0, 100)
-    extinction.f99(wave, 1.0, 3.1)
+    extinction.f99(wave, 1.0)
 
 
