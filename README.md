@@ -33,7 +33,7 @@ affects its amplitude.
 import numpy as np
 import extinction
 
-wave = np.array([2000., 3000., 4000.])
+wave = np.array([2000., 3000., 4000.])  # wavelength in Angstroms
 a_v = 1.0
 r_v = 3.1
 
@@ -53,6 +53,19 @@ extinction.f99(wave, a_v)
 f = extinction.F99Extinction(r_v)  # construct once
 f(wave, a_v)  # call multiple times
 
+```
+
+The above functions accept wavelength in Angstroms. There are also corresponding functions
+that accept wavenumber in inverse microns:
+
+```python
+x = 1e4 / np.array([2000., 3000., 4000.])  # wavenumber in inverse microns
+
+extinction.ccm89_invum(x, a_v, r_v)
+extinction.od94_invum(x, a_v, r_v)
+
+f = extinction.F99Extinction(r_v)
+f(x, a_v, unit='invum')
 ```
 
 ## Comparison of functions

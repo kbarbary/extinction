@@ -4,6 +4,8 @@ from distutils.core import setup
 from distutils.extension import Extension
 import re
 
+import numpy
+
 if os.path.exists("extinction.pyx"):
     USE_CYTHON = True
     fname = "extinction.pyx"
@@ -11,7 +13,8 @@ else:
     USE_CYTHON = False
     fname = "extinction.c"
 
-extensions = [Extension("extinction", [fname])]
+include_dirs = [numpy.get_include()]
+extensions = [Extension("extinction", [fname], include_dirs=include_dirs)]
 
 if USE_CYTHON:
     from Cython.Build import cythonize
@@ -20,15 +23,21 @@ if USE_CYTHON:
 # Synchronize version from code.
 version = re.findall(r"__version__ = \"(.*?)\"", open(fname).read())[0]
 
-classifiers = []
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 2",
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Scientific/Engineering :: Astronomy",
+    "Intended Audience :: Science/Research"]
 
 setup(name="extinction", 
       version=version,
-      description="",
+      description="Fast interstellar dust extinction laws",
       long_description="",
       license="MIT",
       classifiers=classifiers,
-      url="",
+      url="http://github.com/kbarbary/extinction",
       author="Kyle Barbary",
       author_email="kylebarbary@gmail.com",
       ext_modules=extensions,

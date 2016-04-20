@@ -10,12 +10,12 @@ import extinction
 
 rcParams['font.family'] = 'serif'
 
-functions = {'ccm89': extinction.ccm89,
-             'od94': extinction.od94,
-             'f99': extinction.f99}
+functions = ['ccm89', 'od94', 'f99']
 
 wave = np.logspace(np.log10(910.), np.log10(30000.), 2000)
-a_lambda = {key: functions[key](wave, 1.0, 3.1) for key in functions}
+a_lambda = {'ccm89': extinction.ccm89(wave, 1.0, 3.1),
+            'od94': extinction.od94(wave, 1.0, 3.1),
+            'f99': extinction.f99(wave, 1.0)}
 
 fig = plt.figure(figsize=(8.5, 6.))
 

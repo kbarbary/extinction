@@ -78,9 +78,23 @@ def test_od94():
                     rtol=0.0051, atol=0.)
 
 
-def test_f99():
-    # TODO: find reference values for Fitzpatrick (1999)
-    wave = np.linspace(1000.0, 60000.0, 100)
-    extinction.f99(wave, 1.0)
+def test_f99_knots():
+    """Test that knots match values in Fitzpatrick (1999) Table 3 for
+    f99 function (with R_V = 3.1)"""
 
+    wave = np.array([np.inf, 26500., 12200., 6000., 5470., 4670., 4110.,
+                     2700., 2600.])
+    x = np.array([0.0, 0.377, 0.820, 1.667, 1.828, 2.141, 2.433, 3.704,
+                  3.846])
+    
+    # A(lambda) values for E(B-V) = 1 or A_V = 3.1
+    ref_values = np.array([0.0, 0.265, 0.829, 2.688, 3.055, 3.806, 4.315, 6.265,
+                           6.591])
 
+    assert_allclose(extinction.f99(wave, 3.1, unit='aa'), ref_values,
+                    rtol=0., atol=0.001)
+
+    # atol = 0.002 because the input values are less precise (e.g., 0.377
+    # rather than 1.e4 / 26500.)
+    assert_allclose(extinction.f99(x, 3.1, unit='invum'), ref_values,
+                    rtol=0., atol=0.002)
