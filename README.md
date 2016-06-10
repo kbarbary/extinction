@@ -41,21 +41,21 @@ r_v = 3.1
 extinction.ccm89(wave, a_v, r_v)
 
 # O'Donnell (1994)
-extinction.od94(wave, a_v, r_v)
+extinction.odonnell94(wave, a_v, r_v)
 
 # Fitzpatrick (1999) for R_V = 3.1
-extinction.f99(wave, a_v)
+extinction.fitzpatrick99(wave, a_v)
 
 
 # Fitzpatrick (1999) is based on splines, which have to be
 # constructed for a given R_V. To use Fitzpatrick with R_V values other
 # than 3.1:
-f = extinction.F99Extinction(r_v)  # construct once
+f = extinction.Fitzpatrick99(r_v)  # construct once
 f(wave, a_v)  # call multiple times
 
 ```
 
-The above functions accept wavelength in Angstroms. There are also corresponding functions
+The above functions accept wavelength in Angstroms.
 that accept wavenumber in inverse microns:
 
 ```python

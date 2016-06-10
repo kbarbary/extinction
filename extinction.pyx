@@ -9,7 +9,8 @@ from scipy.interpolate import splmake, spleval
 
 __version__ = "0.2.0"
 
-__all__ = ['ccm89', 'od94', 'F99', 'f99', 'gcc09']  # fm07, c00
+__all__ = ['ccm89', 'odonnell94', 'Fitzpatrick99', 'fitzpatrick99', 'fm07',
+           'calzetti00']
 
 # ------------------------------------------------------------------------------
 # Utility functions for converting wavelength units
@@ -164,11 +165,14 @@ cdef inline void od94ab_invum(double x, double *a, double *b):
         ccm89ab_fuv_invum(x, a, b)
 
 
-def od94(double[:] wave, double a_v, double r_v, unit='aa',
+def odonnell94(double[:] wave, double a_v, double r_v, unit='aa',
          np.ndarray out=None):
-    """od94(wave, a_v, r_v, out=None, unit='aa', out=None)
+    """odonnell94(wave, a_v, r_v, out=None, unit='aa', out=None)
 
     O'Donnell (1994) extinction function.
+
+    Like Cardelli, Clayton, & Mathis (1989) [1]_ but using the O'Donnell
+    (1994) [2]_ optical coefficients between 3030 A and 9091 A.
 
     Parameters
     ----------
@@ -187,6 +191,28 @@ def od94(double[:] wave, double a_v, double r_v, unit='aa',
     Returns
     -------
     Extinction in magnitudes at each input wavelength.
+
+    Notes
+    -----
+    This function matches the Goddard IDL astrolib routine CCM_UNRED.
+    From the documentation for that routine:
+    1. The CCM curve shows good agreement with the Savage & Mathis (1979)
+       [3]_ ultraviolet curve shortward of 1400 A, but is probably
+       preferable between 1200 and 1400 A.
+    2. Curve is extrapolated between 912 and 1000 A as suggested by
+       Longo et al. (1989) [4]_
+    3. Valencic et al. (2004) [5]_ revise the ultraviolet CCM
+       curve (3.3 -- 8.0 um^-1).    But since their revised curve does
+       not connect smoothly with longer and shorter wavelengths, it is
+       not included here.
+
+    References
+    ----------
+    .. [1] Cardelli, J. A., Clayton, G. C., & Mathis, J. S. 1989, ApJ, 345, 245
+    .. [2] O'Donnell, J. E. 1994, ApJ, 422, 158O 
+    .. [3] Savage & Mathis 1979, ARA&A, 17, 73
+    .. [4] Longo et al. 1989, ApJ, 339,474
+    .. [5] Valencic et al. 2004, ApJ, 616, 912
     """
 
     cdef:
@@ -215,88 +241,6 @@ def od94(double[:] wave, double a_v, double r_v, unit='aa',
         out_view[i] = a_v * (a + b / r_v)
 
     return out
-
-
-# -----------------------------------------------------------------------------
-# gcc 09
-
-cdef double gcc09ab_uv_invum(double x, double *a, double *b):
-    """gcc09 a, b parameters for x > 3.3 (ultraviolet)"""
-    cdef double y, y2, y3
-
-    y = x - 4.57
-    a[0] = 1.896 - 0.372*x - 0.0108 / (y*y + 0.0422)
-    y = x - 4.59
-    b[0] = -3.503 + 2.057*x + 0.718 / (y*y + 0.0530*3.1)
-    if x > 5.9:
-        y = x - 5.9
-        y2 = y * y
-        y3 = y * y2
-        a[0] += -0.110 * y2 - 0.0099 * y3
-        b[0] += 0.537 * y2 + 0.0530 * y3
-
-
-cdef inline void gcc09ab_invum(double x, double *a, double *b):
-    if x < 1.1:
-        ccm89ab_ir_invum(x, a, b)
-    elif x < 3.3:
-        od94ab_opt_invum(x, a, b)
-    else:
-        gcc09ab_uv_invum(x, a, b)
-
-
-def gcc09(double[:] wave, double a_v, double r_v, unit='aa',
-          np.ndarray out=None):
-    """gcc09(wave, a_v, r_v, out=None, unit='aa', out=None)
-
-    Gordon, Cartledge, & Clayton (2009) extinction function.
-
-    Parameters
-    ----------
-    wave : numpy.ndarray (1-d)
-        Wavelengths or wavenumbers.
-    a_v : float
-        Scaling parameter, A_V: extinction in magnitudes at characteristic
-        V band wavelength.
-    r_v : float
-        Ratio of total to selective extinction, A_V / E(B-V).
-    unit : {'aa', 'invum'}, optional
-        Unit of wave: 'aa' (Angstroms) or 'invum' (inverse microns).
-    out : np.ndarray, optional
-        If specified, store output values in this array.
-
-    Returns
-    -------
-    Extinction in magnitudes at each input wavelength.
-    """
-
-    cdef:
-        size_t i
-        size_t n = wave.shape[0]
-        double a = 0.0
-        double b = 0.0
-
-    if out is None:
-        out = np.empty(n, dtype=np.float)
-    else:
-        assert out.shape == wave.shape
-        assert out.dtype == np.float
-
-    cdef scalar_func convert_wave
-    if unit == 'aa':
-        convert_wave = &aa_to_invum
-    elif unit == 'invum':
-        convert_wave = &noop
-    else:
-        raise ValueError("unrecognized unit")
-
-    cdef double[:] out_view = out
-    for i in range(n):
-        gcc09ab_invum(convert_wave(wave[i]), &a, &b)
-        out_view[i] = a_v * (a + b / r_v)
-
-    return out
-
 
 
 # -----------------------------------------------------------------------------
@@ -334,7 +278,7 @@ _F99_XKNOTS = 1.e4 / np.array([np.inf, 26500., 12200., 6000., 5470.,
                                4670., 4110., 2700., 2600.])
 
 
-def _f99kknots(double[:] xknots, double r_v):
+def _f99_kknots(double[:] xknots, double r_v):
     cdef double c1, c2, d, x, x2, y, rv2
     cdef double[:] kknots_view
     cdef int i
@@ -361,13 +305,23 @@ def _f99kknots(double[:] xknots, double r_v):
     return kknots
 
 
-class F99(object):
-    """Fitzpatrick (1999) dust extinction function."""
+class Fitzpatrick99(object):
+    """Fitzpatrick (1999) dust extinction function for arbitrary R_V.
+
+    An instance of this class is a callable that can be used as
+    ``f(wave, a_v)`` where ``wave`` is a 1-d array of wavelengths and ``a_v``
+    is a scalar value.
+
+    Parameters
+    ----------
+    r_v : float, optional
+        R_V value. Default is 3.1.
+    """
 
     def __init__(self, r_v=3.1):
         self.r_v = r_v
 
-        kknots = _f99kknots(_F99_XKNOTS, r_v)
+        kknots = _f99_kknots(_F99_XKNOTS, r_v)
         self._spline = splmake(_F99_XKNOTS, kknots, order=3)
 
     def __call__(self, np.ndarray wave not None, double a_v, unit='aa'):
@@ -408,14 +362,15 @@ class F99(object):
 
 
 # functional interface for Fitzpatrick (1999) with R_V = 3.1
-_f99 = F99(3.1)
+_fitzpatrick99_fixed = F99(3.1)
 
-def f99(wave, a_v, unit='aa'):
+
+def fitzpatrick99(wave, a_v, unit='aa'):
     """Fitzpatrick (1999) dust extinction law for R_V = 3.1.
 
     Parameters
     ----------
-    x : numpy.ndarray (1-d)
+    wave : numpy.ndarray (1-d)
         Input wavelengths or wavenumbers (see units).
     a_v : float
         Total V-band extinction in magnitudes.
@@ -426,7 +381,7 @@ def f99(wave, a_v, unit='aa'):
     -------
     Extinction in magnitudes at each input wavelength.
     """
-    return _f99(wave, a_v, unit=unit)
+    return _fitzpatrick99_fixed(wave, a_v, unit=unit)
 
 
 # -----------------------------------------------------------------------------
@@ -456,10 +411,10 @@ cdef inline double fm07_uv_invum(double x, double a_v):
         y = x - FM07_C5
         k += FM07_C4 * y * y
 
-    return a_v * (1. + k / 3.1)
+    return a_v * (1. + k / FM07_R_V)
 
 
-def _fm07kknots(double[:] xknots):
+def _fm07_kknots(double[:] xknots):
     cdef double d
     cdef int i, n
 
@@ -474,7 +429,67 @@ def _fm07kknots(double[:] xknots):
         d = xknots[i]**2 / ((xknots[i]**2 - FM07_X02)**2 +
                             xknots[i]**2 * FM07_GAMMA2)
         kknots[i] = FM07_C1 + FM07_C2 * xknots[i] + FM07_C3 * d
+
     return kknots
+
+
+_fm07_xknots = np.array([0., 0.25, 0.50, 0.75, 1., 1.e4/5530., 1.e4/4000.,
+                        1.e4/3300., 1.e4/2700., 1.e4/2600.])
+_fm07_spline = splmake(_fm07_xknots, _fm07_kknots(_fm07_xknots), order=3)
+
+
+def fm07(double[:] wave, double a_v, unit='aa'):
+    """Fitzpatrick & Massa (2007) extinction model for R_V = 3.1.
+
+    The Fitzpatrick & Massa (2007) [1]_ model, which has a slightly
+    different functional form from that of Fitzpatrick (1999) [3]_
+    (`extinction_f99`). Fitzpatrick & Massa (2007) claim it is
+    preferable, although it is unclear if signficantly so (Gordon et
+    al. 2009 [2]_). Defined from 910 A to 6 microns.
+
+    {0}
+
+
+    References
+    ----------
+    .. [1] Fitzpatrick, E. L. & Massa, D. 2007, ApJ, 663, 320
+    .. [2] Gordon, K. D., Cartledge, S., & Clayton, G. C. 2009, ApJ, 705, 1320
+    .. [3] Fitzpatrick, E. L. 1999, PASP, 111, 63
+    """
+
+    cdef double[:] wave_view, out_view
+    cdef double ebv = a_v / FM07_R_V
+    cdef size_t i
+    cdef size_t n
+
+    # translate `wave` to inverse microns
+    if unit == 'invum':
+        pass
+    elif unit == 'aa':
+        wave = 1e4 / wave
+    else:
+        raise ValueError("unrecognized unit")
+
+    # Optical/IR spline: evaluate at all wavelengths; we will overwrite
+    # the UV points afterwards. These are outside the spline range, so
+    # they don't actually take too much time to evaluate.
+    out = spleval(_fm07_spline, wave)  # this is actually "k"
+        
+    # Analytic function in the UV (< 2700 Angstroms).
+    wave_view = wave
+    out_view = out
+    n = wave.shape[0]
+    for i in range(n):
+        # for optical/IR, `out` is actually k, but we wanted
+        # a_v/r_v * (k+r_v), so we adjust here.
+        if wave_view[i] < 1e4 / 2700.:
+            out_view[i] = ebv * (out_view[i] + FM07_R_V)
+
+        # for UV, we overwrite the array with the UV function value.
+        else:
+            out_view[i] = fm07_uv_invum(wave_view[i], a_v)
+
+    return out
 
 
 # -----------------------------------------------------------------------------
@@ -504,11 +519,17 @@ cdef inline double calzetti00_invum(double x, double r_v):
     return 1.0 + k / r_v
 
 
-def c00(double[:] wave, double a_v, double r_v, unit='aa',
-          np.ndarray out=None):
-    """ccm89(wave, a_v, r_v, unit='aa', out=None)
+def calzetti00(double[:] wave, double a_v, double r_v, unit='aa',
+               np.ndarray out=None):
+    """calzetti00(wave, a_v, r_v, unit='aa', out=None)
 
     Calzetti (2000) extinction function.
+
+    Calzetti et al. (2000, ApJ 533, 682) developed a recipe for
+    dereddening the spectra of galaxies where massive stars dominate the
+    radiation output, valid between 0.12 to 2.2 microns. They estimate
+    R_V = 4.05 +/- 0.80 from optical-IR observations of 4 starburst galaxies.
+
 
     Parameters
     ----------
@@ -516,7 +537,7 @@ def c00(double[:] wave, double a_v, double r_v, unit='aa',
         Wavelengths or wavenumbers.
     a_v : float
         Scaling parameter, A_V: extinction in magnitudes at characteristic
-        V band wavelength.
+        V band  wavelength.
     r_v : float
         Ratio of total to selective extinction, A_V / E(B-V).
     unit : {'aa', 'invum'}, optional
@@ -551,16 +572,15 @@ def c00(double[:] wave, double a_v, double r_v, unit='aa',
 
     cdef double[:] out_view = out
     for i in range(n):
-        od94ab_invum(convert_wave(wave[i]), &a, &b)
-        out_view[i] = a_v * (a + b / r_v)
+        out_view[i] = a_v * calzetti00_invum(convert_wave(wave[i]), r_v)
 
     return out
 
 
 # ------------------------------------------------------------------------------
 # convenience function for applying extinction to flux values, optionally
-# in-place. It turns out that this isn't really faster than just doing it
-# in pure python, because the dominant time is from exponentiation.
+# in-place. (It turns out that this isn't really faster than just doing it
+# in pure python...)
 
 def apply(double[:] extinction, np.ndarray flux not None, bint inplace=False):
     """apply(extinction, flux, inplace=False)
@@ -573,17 +593,17 @@ def apply(double[:] extinction, np.ndarray flux not None, bint inplace=False):
     cdef size_t i
     cdef size_t n = extinction.shape[0]
     cdef double[:] out_view
-    cdef double[:] flux_view
+    cdef double[:] flux_view = flux
 
-    assert extinction.shape[0] == flux.shape[0]
+    if not extinction.shape[0] == flux.shape[0]:
+        raise ValueError("shape of flux and extinction must match")
 
     if inplace:
         out = flux
     else:
         out = np.empty(n, dtype=np.float)
 
-    out_view = out        
-    flux_view = flux
+    out_view = out
     for i in range(n):
         out_view[i] = 10.**(-0.4 * extinction[i]) * flux_view[i]
 
