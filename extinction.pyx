@@ -1,10 +1,27 @@
+#!python
+#cython: boundscheck=False, wraparound=False, initializedcheck=False, cdivision=True
+
 """Interstellar dust extinction functions."""
+
 import numpy as np
 cimport numpy as np
 from scipy.interpolate import splmake, spleval
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
+__all__ = ['ccm89', 'od94', 'F99', 'f99', 'gcc09']  # fm07, c00
+
+# ------------------------------------------------------------------------------
+# Utility functions for converting wavelength units
+
+cdef double aa_to_invum(double x):
+    """Convert Angstroms to inverse microns"""
+    return 1e4 / x
+
+cdef double noop(double x):
+    return x
+
+ctypedef double (*scalar_func)(double)
 
 # -----------------------------------------------------------------------------
 # Cardelli, Clayton & Mathis (1989)
@@ -68,47 +85,57 @@ cdef inline void ccm89ab_invum(double x, double *a, double *b):
         ccm89ab_fuv_invum(x, a, b)
 
 
-def ccm89_invum(double[:] x, double a_v, double r_v):
-    """ccm89_invum(x, a_v, r_v)
+def ccm89(double[:] wave, double a_v, double r_v, unit='aa',
+          np.ndarray out=None):
+    """ccm89(wave, a_v, r_v, unit='aa', out=None)
 
-    Cardelli, Clayton & Mathis (1989) extinction function for inverse microns.
+    Cardelli, Clayton & Mathis (1989) extinction function.
+
+    Parameters
+    ----------
+    wave : numpy.ndarray (1-d)
+        Wavelengths or wavenumbers.
+    a_v : float
+        Scaling parameter, A_V: extinction in magnitudes at characteristic
+        V band wavelength.
+    r_v : float
+        Ratio of total to selective extinction, A_V / E(B-V).
+    unit : {'aa', 'invum'}, optional
+        Unit of wave: 'aa' (Angstroms) or 'invum' (inverse microns).
+    out : np.ndarray, optional
+        If specified, store output values in this array.
+
+    Returns
+    -------
+    Extinction in magnitudes at each input wavelength.
     """
 
-    cdef int i, n
-    cdef double a, b
-    cdef double[:] result_view
-    a = 0.0
-    b = 0.0
+    cdef:
+        size_t i
+        size_t n = wave.shape[0]
+        double a = 0.0
+        double b = 0.0
 
-    n = x.shape[0]
-    result = np.empty(n, dtype=np.float)
-    result_view = result
+    if out is None:
+        out = np.empty(n, dtype=np.float)
+    else:
+        assert out.shape == wave.shape
+        assert out.dtype == np.float
+
+    cdef scalar_func convert_wave
+    if unit == 'aa':
+        convert_wave = &aa_to_invum
+    elif unit == 'invum':
+        convert_wave = &noop
+    else:
+        raise ValueError("unrecognized unit")
+
+    cdef double[:] out_view = out
     for i in range(n):
-        ccm89ab_invum(x[i], &a, &b)
-        result_view[i] = a_v * (a + b / r_v)
-    return result
+        ccm89ab_invum(convert_wave(wave[i]), &a, &b)
+        out_view[i] = a_v * (a + b / r_v)
 
-
-def ccm89_aa(double[:] wave, double a_v, double r_v):
-    """ccm89_aa(wave, a_v, r_v)
-
-    Cardelli, Clayton & Mathis (1989) extinction function for Angstroms.
-    """
-
-    cdef int i, n
-    cdef double a, b
-    cdef double[:] result_view
-    a = 0.0
-    b = 0.0
-
-    n = wave.shape[0]
-    result = np.empty(n, dtype=np.float)
-    result_view = result
-    for i in range(n):
-        ccm89ab_invum(1e4/wave[i], &a, &b)
-        result_view[i] = a_v * (a + b / r_v)
-
-    return result
+    return out
 
 
 # -----------------------------------------------------------------------------
@@ -137,48 +164,57 @@ cdef inline void od94ab_invum(double x, double *a, double *b):
         ccm89ab_fuv_invum(x, a, b)
 
 
-def od94_invum(double[:] x, double a_v, double r_v):
-    """od94_invum(x, a_v, r_v)
+def od94(double[:] wave, double a_v, double r_v, unit='aa',
+         np.ndarray out=None):
+    """od94(wave, a_v, r_v, out=None, unit='aa', out=None)
 
-    O'Donnell (1994) extinction function for wavenumber in inverse microns.
+    O'Donnell (1994) extinction function.
+
+    Parameters
+    ----------
+    wave : numpy.ndarray (1-d)
+        Wavelengths or wavenumbers.
+    a_v : float
+        Scaling parameter, A_V: extinction in magnitudes at characteristic
+        V band wavelength.
+    r_v : float
+        Ratio of total to selective extinction, A_V / E(B-V).
+    unit : {'aa', 'invum'}, optional
+        Unit of wave: 'aa' (Angstroms) or 'invum' (inverse microns).
+    out : np.ndarray, optional
+        If specified, store output values in this array.
+
+    Returns
+    -------
+    Extinction in magnitudes at each input wavelength.
     """
 
-    cdef int i, n
-    cdef double a, b
-    cdef double[:] result_view
-    a = 0.0
-    b = 0.0
+    cdef:
+        size_t i
+        size_t n = wave.shape[0]
+        double a = 0.0
+        double b = 0.0
 
-    n = x.shape[0]
-    result = np.empty(n, dtype=np.float)
-    result_view = result
+    if out is None:
+        out = np.empty(n, dtype=np.float)
+    else:
+        assert out.shape == wave.shape
+        assert out.dtype == np.float
+
+    cdef scalar_func convert_wave
+    if unit == 'aa':
+        convert_wave = &aa_to_invum
+    elif unit == 'invum':
+        convert_wave = &noop
+    else:
+        raise ValueError("unrecognized unit")
+
+    cdef double[:] out_view = out
     for i in range(n):
-        od94ab_invum(x[i], &a, &b)
-        result_view[i] = a_v * (a + b / r_v)
+        od94ab_invum(convert_wave(wave[i]), &a, &b)
+        out_view[i] = a_v * (a + b / r_v)
 
-    return result
-
-
-def od94_aa(double[:] wave, double a_v, double r_v):
-    """od94_aa(wave, a_v, r_v)
-
-    O'Donnell (1994) dust extinction function for wavelength in Angstroms.
-    """
-
-    cdef int i, n
-    cdef double a, b
-    cdef double[:] result_view
-    a = 0.0
-    b = 0.0
-
-    n = wave.shape[0]
-    result = np.empty(n, dtype=np.float)
-    result_view = result
-    for i in range(n):
-        od94ab_invum(1e4/wave[i], &a, &b)
-        result_view[i] = a_v * (a + b / r_v)
-
-    return result
+    return out
 
 
 # -----------------------------------------------------------------------------
@@ -209,23 +245,58 @@ cdef inline void gcc09ab_invum(double x, double *a, double *b):
         gcc09ab_uv_invum(x, a, b)
 
 
-def gcc09_invum(double[:] x, double a_v, double r_v):
-    """gcc09_invum(x, a_v, r_v)"""
+def gcc09(double[:] wave, double a_v, double r_v, unit='aa',
+          np.ndarray out=None):
+    """gcc09(wave, a_v, r_v, out=None, unit='aa', out=None)
 
-    cdef int i, n
-    cdef double a, b
-    cdef double[:] result_view
-    a = 0.0
-    b = 0.0
+    Gordon, Cartledge, & Clayton (2009) extinction function.
 
-    n = x.shape[0]
-    result = np.empty(n, dtype=np.float)
-    result_view = result
+    Parameters
+    ----------
+    wave : numpy.ndarray (1-d)
+        Wavelengths or wavenumbers.
+    a_v : float
+        Scaling parameter, A_V: extinction in magnitudes at characteristic
+        V band wavelength.
+    r_v : float
+        Ratio of total to selective extinction, A_V / E(B-V).
+    unit : {'aa', 'invum'}, optional
+        Unit of wave: 'aa' (Angstroms) or 'invum' (inverse microns).
+    out : np.ndarray, optional
+        If specified, store output values in this array.
+
+    Returns
+    -------
+    Extinction in magnitudes at each input wavelength.
+    """
+
+    cdef:
+        size_t i
+        size_t n = wave.shape[0]
+        double a = 0.0
+        double b = 0.0
+
+    if out is None:
+        out = np.empty(n, dtype=np.float)
+    else:
+        assert out.shape == wave.shape
+        assert out.dtype == np.float
+
+    cdef scalar_func convert_wave
+    if unit == 'aa':
+        convert_wave = &aa_to_invum
+    elif unit == 'invum':
+        convert_wave = &noop
+    else:
+        raise ValueError("unrecognized unit")
+
+    cdef double[:] out_view = out
     for i in range(n):
-        gcc09ab_invum(x[i], &a, &b)
-        result_view[i] = a_v * (a + b / r_v)
+        gcc09ab_invum(convert_wave(wave[i]), &a, &b)
+        out_view[i] = a_v * (a + b / r_v)
 
-    return result
+    return out
+
 
 
 # -----------------------------------------------------------------------------
@@ -238,6 +309,7 @@ DEF F99_C4 = 0.41
 DEF F99_C5 = 5.9
 DEF F99_X02 = F99_X0 * F99_X0
 DEF F99_GAMMA2 = F99_GAMMA * F99_GAMMA
+
 
 cdef inline double f99_uv_invum(double x, double a_v, double r_v):
     """f99 extinction for x < 1e4/2700 microns^-1"""
@@ -257,8 +329,10 @@ cdef inline double f99_uv_invum(double x, double a_v, double r_v):
 
     return a_v * (1. + k / r_v)
 
+
 _F99_XKNOTS = 1.e4 / np.array([np.inf, 26500., 12200., 6000., 5470.,
                                4670., 4110., 2700., 2600.])
+
 
 def _f99kknots(double[:] xknots, double r_v):
     cdef double c1, c2, d, x, x2, y, rv2
@@ -287,7 +361,7 @@ def _f99kknots(double[:] xknots, double r_v):
     return kknots
 
 
-class F99Extinction(object):
+class F99(object):
     """Fitzpatrick (1999) dust extinction function."""
 
     def __init__(self, r_v=3.1):
@@ -296,47 +370,48 @@ class F99Extinction(object):
         kknots = _f99kknots(_F99_XKNOTS, r_v)
         self._spline = splmake(_F99_XKNOTS, kknots, order=3)
 
-    def __call__(self, np.ndarray x not None, double a_v, unit='aa'):
-        cdef double[:] x_view, result_view
+    def __call__(self, np.ndarray wave not None, double a_v, unit='aa'):
+        cdef double[:] wave_view, out_view
         cdef double r_v = self.r_v
         cdef double ebv = a_v / r_v
-        cdef int i
+        cdef size_t i
+        cdef size_t n
 
-        # translate x to inverse microns
+        # translate `wave` to inverse microns
         if unit == 'invum':
             pass
         elif unit == 'aa':
-            x = 1e4 / x
+            wave = 1e4 / wave
         else:
             raise ValueError("unrecognized unit")
 
         # Optical/IR spline: evaluate at all wavelengths; we will overwrite
         # the UV points afterwards. These are outside the spline range, so
         # they don't actually take too much time to evaluate.
-        result = spleval(self._spline, x)  # this is actually "k"
+        out = spleval(self._spline, wave)  # this is actually "k"
         
         # Analytic function in the UV (< 2700 Angstroms).
-        x_view = x
-        result_view = result
-        for i in range(x_view.shape[0]):
-            # for optical/IR, result is actually k, but we wanted
+        wave_view = wave
+        out_view = out
+        n = wave.shape[0]
+        for i in range(n):
+            # for optical/IR, `out` is actually k, but we wanted
             # a_v/r_v * (k+r_v), so we adjust here.
-            if x_view[i] < 1e4 / 2700.:
-                result_view[i] = ebv * (result_view[i] + r_v)
+            if wave_view[i] < 1e4 / 2700.:
+                out_view[i] = ebv * (out_view[i] + r_v)
 
             # for UV, we overwrite the array with the UV function value.
             else:
-                result_view[i] = f99_uv_invum(x_view[i], a_v, r_v)
+                out_view[i] = f99_uv_invum(wave_view[i], a_v, r_v)
 
-        return result
+        return out
 
 
 # functional interface for Fitzpatrick (1999) with R_V = 3.1
-f99 = F99Extinction(3.1)
-f99.__doc__ = """
-    f99(x, a_v, unit='aa')
+_f99 = F99(3.1)
 
-    Fitzpatrick (1999) dust extinction law for R_V = 3.1.
+def f99(wave, a_v, unit='aa'):
+    """Fitzpatrick (1999) dust extinction law for R_V = 3.1.
 
     Parameters
     ----------
@@ -345,12 +420,14 @@ f99.__doc__ = """
     a_v : float
         Total V-band extinction in magnitudes.
     unit : {'aa', 'invum'}, optional
-        Units of x: Angstroms or inverse microns.
+        Wavelength units: Angstroms or inverse microns.
 
     Returns
     -------
-    Extinction in magnitudes at each input wavelength or wavenumber.
-"""
+    Extinction in magnitudes at each input wavelength.
+    """
+    return _f99(wave, a_v, unit=unit)
+
 
 # -----------------------------------------------------------------------------
 # Fitzpatrick & Massa 2007
@@ -404,50 +481,110 @@ def _fm07kknots(double[:] xknots):
 # Calzetti 2000
 # http://adsabs.harvard.edu/abs/2000ApJ...533..682C
 
+cdef inline double calzetti00k_uv_invum(double x):
+    """calzetti00 `k` for 0.12 microns < wave < 0.63 microns (UV/optical),
+    x in microns^-1"""
+    return 2.659 * (((0.011*x - 0.198)*x + 1.509)*x - 2.156)
 
 
-# -----------------------------------------------------------------------------
-# complete function docstrings and convenience aliases.
+cdef inline double calzetti00k_ir_invum(double x):
+    """calzetti00 `k` for 0.63 microns < wave < 2.2 microns (optical/IR),
+    x in microns^-1"""
+    return 2.659 * (1.040*x - 1.857)
 
-param_doc_invum = """
-    Parameters
-    ----------
-    x : numpy.ndarray (1-d)
-        Wavenumber in [microns]^(-1).
-    a_v : float
-        Scaling parameter, A_V: extinction in magnitudes at characteristic
-        V band wavelength.
-    r_v : float
-        Ratio of total to selective extinction, A_V / E(B-V).
 
-    Returns
-    -------
-    Extinction in magnitudes at each input wavenumber.
-    """
+cdef inline double calzetti00_invum(double x, double r_v):
+    cdef double k
+    
+    if x > 1.5873015873015872:  # 1. / 0.63
+        k = calzetti00k_uv_invum(x)
+    else:
+        k = calzetti00k_ir_invum(x)
 
-param_doc_aa = """
+    return 1.0 + k / r_v
+
+
+def c00(double[:] wave, double a_v, double r_v, unit='aa',
+          np.ndarray out=None):
+    """ccm89(wave, a_v, r_v, unit='aa', out=None)
+
+    Calzetti (2000) extinction function.
+
     Parameters
     ----------
     wave : numpy.ndarray (1-d)
-        Wavelength in Angstroms.
+        Wavelengths or wavenumbers.
     a_v : float
         Scaling parameter, A_V: extinction in magnitudes at characteristic
         V band wavelength.
     r_v : float
         Ratio of total to selective extinction, A_V / E(B-V).
+    unit : {'aa', 'invum'}, optional
+        Unit of wave: 'aa' (Angstroms) or 'invum' (inverse microns).
+    out : np.ndarray, optional
+        If specified, store output values in this array.
 
     Returns
     -------
     Extinction in magnitudes at each input wavelength.
     """
 
-#ccm89_invum.__doc__ += param_doc_invum
-#ccm89_aa.__doc__ += param_doc_aa
+    cdef:
+        size_t i
+        size_t n = wave.shape[0]
+        double a = 0.0
+        double b = 0.0
 
-#od94_invum.__doc__ += param_doc_invum
-#od94_aa.__doc__ += param_doc_aa
+    if out is None:
+        out = np.empty(n, dtype=np.float)
+    else:
+        assert out.shape == wave.shape
+        assert out.dtype == np.float
+
+    cdef scalar_func convert_wave
+    if unit == 'aa':
+        convert_wave = &aa_to_invum
+    elif unit == 'invum':
+        convert_wave = &noop
+    else:
+        raise ValueError("unrecognized unit")
+
+    cdef double[:] out_view = out
+    for i in range(n):
+        od94ab_invum(convert_wave(wave[i]), &a, &b)
+        out_view[i] = a_v * (a + b / r_v)
+
+    return out
 
 
-# convenience aliases
-ccm89 = ccm89_aa
-od94 = od94_aa
+# ------------------------------------------------------------------------------
+# convenience function for applying extinction to flux values, optionally
+# in-place. It turns out that this isn't really faster than just doing it
+# in pure python, because the dominant time is from exponentiation.
+
+def apply(double[:] extinction, np.ndarray flux not None, bint inplace=False):
+    """apply(extinction, flux, inplace=False)
+
+    Apply extinction in magnitudes to flux values, optionally in-place.
+
+    The output value is flux * 10**(-0.4 * extinction).
+    """
+
+    cdef size_t i
+    cdef size_t n = extinction.shape[0]
+    cdef double[:] out_view
+    cdef double[:] flux_view
+
+    assert extinction.shape[0] == flux.shape[0]
+
+    if inplace:
+        out = flux
+    else:
+        out = np.empty(n, dtype=np.float)
+
+    out_view = out        
+    flux_view = flux
+    for i in range(n):
+        out_view[i] = 10.**(-0.4 * extinction[i]) * flux_view[i]
+
+    return out

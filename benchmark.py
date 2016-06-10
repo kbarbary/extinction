@@ -47,10 +47,10 @@ print()
 # Fitzpatrick init
 setup = """
 import numpy
-from extinction import F99Extinction
+from extinction import F99
 """
 
-stmt = "F99Extinction(3.1)"
+stmt = "F99(3.1)"
 
 nloops = 10000
 times = timeit.repeat(stmt, setup=setup, repeat=3, number=nloops)
@@ -63,12 +63,12 @@ print('F99 init              {:8.2f}us'.format(t))
 
 setup = """
 import numpy
-from extinction import F99Extinction
+from extinction import F99
 
 wave = numpy.logspace(numpy.log10({minwave}),
                       numpy.log10({maxwave}),
                       {size:d})
-f = F99Extinction(3.1)
+f = F99(3.1)
 """
 
 stmt = "f(wave, 1.0)"
@@ -85,6 +85,31 @@ for b in benchmarks:
                           repeat=3, number=b['nloops'])
     b['time'] = min(times) / b['nloops'] * 1e6
     print('F99 call  wave=[{minwave: 7.1f}, {maxwave: 7.1f}]  size={size:5d}  {time:8.2f}us'.format(**b))
+
+# ------------------------------------------------------------------------
+# apply
+
+setup = """
+import numpy
+from extinction import apply
+
+ext = numpy.ones({size:d})
+flux = numpy.ones({size:d})
+"""
+
+stmt = "apply(ext, flux, inplace={inplace!r})"
+
+benchmarks = [
+    {'size': 10, 'nloops': 100000, 'inplace': True},
+    {'size': 10, 'nloops': 100000, 'inplace': False},
+    {'size': 100, 'nloops': 100000, 'inplace': True},
+    {'size': 100, 'nloops': 100000, 'inplace': False},
+    {'size': 1000, 'nloops': 10000, 'inplace': False}]
+for b in benchmarks:
+    times = timeit.repeat(stmt.format(**b), setup=setup.format(**b),
+                          repeat=3, number=b['nloops'])
+    b['time'] = min(times) / b['nloops'] * 1e6
+    print('apply  size={size:5d} inplace={inplace!r} {time:8.2f}us'.format(**b))
 
 
 #def benchmark(f, args, repeat=3):
