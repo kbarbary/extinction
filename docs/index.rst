@@ -98,7 +98,10 @@ To "redden" or "deredden" flux values by some amount, use the
   >>> apply(ccm89(wave, -1.0, 3.1), flux)
   array([ 13.70915145,   3.85320647,   1.73378645])
 
+**Comparison of functions**
 
+.. image:: _static/extinction.png
+   
 **Parameterization**
 
 The shape of most of the extinction laws here are parameterized by an
@@ -112,4 +115,5 @@ License and Credits
 -------------------
 
 Part of this code originated in the specutils package.
-The license is BSD 3-clause.
+
+The license is MIT.
