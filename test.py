@@ -29,7 +29,7 @@ def test_ccm89():
                     rtol=0.016, atol=0.)
 
 
-def test_od94():
+def test_odonnell94():
     # NOTE: The tabulated values go to 0.001, but the test is only for matching
     # at the 0.005 level, because there is currently a discrepancy up to 0.0047
     # of unknown origin.
@@ -74,13 +74,13 @@ def test_od94():
                            0.885, 0.746, 0.597,
                            1.197, 0.811, 0.580])
 
-    assert_allclose(extinction.od94(wave, 1.0, 3.1), ref_values,
+    assert_allclose(extinction.odonnell94(wave, 1.0, 3.1), ref_values,
                     rtol=0.0051, atol=0.)
 
 
-def test_f99_knots():
+def test_fitzpatrick99_knots():
     """Test that knots match values in Fitzpatrick (1999) Table 3 for
-    f99 function (with R_V = 3.1)"""
+    fitzpatrick99 function (with R_V = 3.1)"""
 
     wave = np.array([np.inf, 26500., 12200., 6000., 5470., 4670., 4110.,
                      2700., 2600.])
@@ -91,10 +91,24 @@ def test_f99_knots():
     ref_values = np.array([0.0, 0.265, 0.829, 2.688, 3.055, 3.806, 4.315, 6.265,
                            6.591])
 
-    assert_allclose(extinction.f99(wave, 3.1, unit='aa'), ref_values,
+    assert_allclose(extinction.fitzpatrick99(wave, 3.1, unit='aa'), ref_values,
                     rtol=0., atol=0.001)
 
     # atol = 0.002 because the input values are less precise (e.g., 0.377
     # rather than 1.e4 / 26500.)
-    assert_allclose(extinction.f99(x, 3.1, unit='invum'), ref_values,
+    assert_allclose(extinction.fitzpatrick99(x, 3.1, unit='invum'), ref_values,
                     rtol=0., atol=0.002)
+
+
+def test_calzetti00():
+    """Test calzetti against another translation of the same base code"""
+    
+    wave = np.array([2000., 4000., 8000.])
+    flux = np.ones(3)
+
+    new_flux = extinction.apply(extinction.calzetti00(wave, -1., 3.1), flux)
+    
+    # derived using Julia version of IDL calz_unred
+    ref_values = np.array([10.5288, 3.88153, 1.61769])
+
+    assert_allclose(new_flux, ref_values, atol=0.0001)

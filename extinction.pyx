@@ -10,7 +10,7 @@ from scipy.interpolate import splmake, spleval
 __version__ = "0.2.0"
 
 __all__ = ['ccm89', 'odonnell94', 'Fitzpatrick99', 'fitzpatrick99', 'fm07',
-           'calzetti00']
+           'calzetti00', 'apply']
 
 # ------------------------------------------------------------------------------
 # Utility functions for converting wavelength units
@@ -92,6 +92,9 @@ def ccm89(double[:] wave, double a_v, double r_v, unit='aa',
 
     Cardelli, Clayton & Mathis (1989) extinction function.
 
+    The parameters given in the original paper [1]_ are used.
+    The claimed validity is 1250 Angstroms to 3.3 microns.
+
     Parameters
     ----------
     wave : numpy.ndarray (1-d)
@@ -109,6 +112,29 @@ def ccm89(double[:] wave, double a_v, double r_v, unit='aa',
     Returns
     -------
     Extinction in magnitudes at each input wavelength.
+
+    Notes
+    -----
+    In Cardelli, Clayton & Mathis (1989) the mean
+    R_V-dependent extinction law, is parameterized as
+
+    .. math::
+
+       <A(\lambda)/A_V> = a(x) + b(x) / R_V
+
+    where the coefficients a(x) and b(x) are functions of
+    wavelength. At a wavelength of approximately 5494.5 angstroms (a
+    characteristic wavelength for the V band), a(x) = 1 and b(x) = 0,
+    so that A(5494.5 angstroms) = A_V. This function returns
+
+    .. math::
+
+       A(\lambda) = A_V (a(x) + b(x) / R_V)
+
+    References
+    ----------
+    .. [1] Cardelli, J. A., Clayton, G. C., & Mathis, J. S. 1989, ApJ, 345, 245
+
     """
 
     cdef:
@@ -167,7 +193,7 @@ cdef inline void od94ab_invum(double x, double *a, double *b):
 
 def odonnell94(double[:] wave, double a_v, double r_v, unit='aa',
          np.ndarray out=None):
-    """odonnell94(wave, a_v, r_v, out=None, unit='aa', out=None)
+    """odonnell94(wave, a_v, r_v, unit='aa', out=None)
 
     O'Donnell (1994) extinction function.
 
@@ -196,11 +222,14 @@ def odonnell94(double[:] wave, double a_v, double r_v, unit='aa',
     -----
     This function matches the Goddard IDL astrolib routine CCM_UNRED.
     From the documentation for that routine:
+
     1. The CCM curve shows good agreement with the Savage & Mathis (1979)
        [3]_ ultraviolet curve shortward of 1400 A, but is probably
        preferable between 1200 and 1400 A.
+
     2. Curve is extrapolated between 912 and 1000 A as suggested by
        Longo et al. (1989) [4]_
+
     3. Valencic et al. (2004) [5]_ revise the ultraviolet CCM
        curve (3.3 -- 8.0 um^-1).    But since their revised curve does
        not connect smoothly with longer and shorter wavelengths, it is
@@ -213,6 +242,7 @@ def odonnell94(double[:] wave, double a_v, double r_v, unit='aa',
     .. [3] Savage & Mathis 1979, ARA&A, 17, 73
     .. [4] Longo et al. 1989, ApJ, 339,474
     .. [5] Valencic et al. 2004, ApJ, 616, 912
+
     """
 
     cdef:
@@ -316,6 +346,17 @@ class Fitzpatrick99(object):
     ----------
     r_v : float, optional
         R_V value. Default is 3.1.
+
+    Examples
+    --------
+    Create a callable that gives the extinction law for a given ``r_v``
+    and use it:
+
+    >>> f = Fitzpatrick99(3.1)
+
+    >>> f(np.array([3000., 4000.]), 1.)
+    array([ 1.79939955,  1.42338583])
+
     """
 
     def __init__(self, r_v=3.1):
@@ -351,7 +392,7 @@ class Fitzpatrick99(object):
         for i in range(n):
             # for optical/IR, `out` is actually k, but we wanted
             # a_v/r_v * (k+r_v), so we adjust here.
-            if wave_view[i] < 1e4 / 2700.:
+            if wave_view[i] < 3.7037037037037037:  # 1e4 / 2700
                 out_view[i] = ebv * (out_view[i] + r_v)
 
             # for UV, we overwrite the array with the UV function value.
@@ -362,11 +403,22 @@ class Fitzpatrick99(object):
 
 
 # functional interface for Fitzpatrick (1999) with R_V = 3.1
-_fitzpatrick99_fixed = F99(3.1)
+_fitzpatrick99_fixed = Fitzpatrick99(3.1)
 
 
 def fitzpatrick99(wave, a_v, unit='aa'):
-    """Fitzpatrick (1999) dust extinction law for R_V = 3.1.
+    """fitzpatrick99(wave, a_v, unit='aa')
+
+    Fitzpatrick (1999) dust extinction function for R_V = 3.1.
+
+    Fitzpatrick (1999) [1]_ model which relies on the parametrization
+    of Fitzpatrick & Massa (1990) [2]_ in the UV (below 2700 A) and
+    spline fitting in the optical and IR. This function is defined
+    from 910 A to 6 microns, but note the claimed validity goes down
+    only to 1150 A. The optical spline points are not taken from F99
+    Table 4, but rather updated versions from E. Fitzpatrick (this
+    matches the Goddard IDL astrolib routine FM_UNRED).
+
 
     Parameters
     ----------
@@ -380,6 +432,11 @@ def fitzpatrick99(wave, a_v, unit='aa'):
     Returns
     -------
     Extinction in magnitudes at each input wavelength.
+
+    References
+    ----------
+    .. [1] Fitzpatrick, E. L. 1999, PASP, 111, 63
+    .. [2] Fitzpatrick, E. L. & Massa, D. 1990, ApJS, 72, 163
     """
     return _fitzpatrick99_fixed(wave, a_v, unit=unit)
 
@@ -438,8 +495,10 @@ _fm07_xknots = np.array([0., 0.25, 0.50, 0.75, 1., 1.e4/5530., 1.e4/4000.,
 _fm07_spline = splmake(_fm07_xknots, _fm07_kknots(_fm07_xknots), order=3)
 
 
-def fm07(double[:] wave, double a_v, unit='aa'):
-    """Fitzpatrick & Massa (2007) extinction model for R_V = 3.1.
+def fm07(np.ndarray wave not None, double a_v, unit='aa'):
+    """fm07(wave, a_v, unit='aa')
+
+    Fitzpatrick & Massa (2007) extinction model for R_V = 3.1.
 
     The Fitzpatrick & Massa (2007) [1]_ model, which has a slightly
     different functional form from that of Fitzpatrick (1999) [3]_
@@ -447,14 +506,22 @@ def fm07(double[:] wave, double a_v, unit='aa'):
     preferable, although it is unclear if signficantly so (Gordon et
     al. 2009 [2]_). Defined from 910 A to 6 microns.
 
-    {0}
-
+    Parameters
+    ----------
+    wave : numpy.ndarray (1-d)
+        Wavelengths or wavenumbers.
+    a_v : float
+        Scaling parameter, A_V: extinction in magnitudes at characteristic
+        V band  wavelength.
+    unit : {'aa', 'invum'}, optional
+        Unit of wave: 'aa' (Angstroms) or 'invum' (inverse microns).
 
     References
     ----------
     .. [1] Fitzpatrick, E. L. & Massa, D. 2007, ApJ, 663, 320
     .. [2] Gordon, K. D., Cartledge, S., & Clayton, G. C. 2009, ApJ, 705, 1320
     .. [3] Fitzpatrick, E. L. 1999, PASP, 111, 63
+
     """
 
     cdef double[:] wave_view, out_view
@@ -482,7 +549,7 @@ def fm07(double[:] wave, double a_v, unit='aa'):
     for i in range(n):
         # for optical/IR, `out` is actually k, but we wanted
         # a_v/r_v * (k+r_v), so we adjust here.
-        if wave_view[i] < 1e4 / 2700.:
+        if wave_view[i] < 3.7037037037037037:  # 1e4 / 2700
             out_view[i] = ebv * (out_view[i] + FM07_R_V)
 
         # for UV, we overwrite the array with the UV function value.
@@ -528,8 +595,8 @@ def calzetti00(double[:] wave, double a_v, double r_v, unit='aa',
     Calzetti et al. (2000, ApJ 533, 682) developed a recipe for
     dereddening the spectra of galaxies where massive stars dominate the
     radiation output, valid between 0.12 to 2.2 microns. They estimate
-    R_V = 4.05 +/- 0.80 from optical-IR observations of 4 starburst galaxies.
-
+    :math:`R_V = 4.05 \pm 0.80` from optical-IR observations of
+    4 starburst galaxies.
 
     Parameters
     ----------
@@ -548,6 +615,7 @@ def calzetti00(double[:] wave, double a_v, double r_v, unit='aa',
     Returns
     -------
     Extinction in magnitudes at each input wavelength.
+
     """
 
     cdef:
@@ -585,9 +653,26 @@ def calzetti00(double[:] wave, double a_v, double r_v, unit='aa',
 def apply(double[:] extinction, np.ndarray flux not None, bint inplace=False):
     """apply(extinction, flux, inplace=False)
 
-    Apply extinction in magnitudes to flux values, optionally in-place.
+    Apply extinction to flux values (optionally in-place).
 
-    The output value is flux * 10**(-0.4 * extinction).
+    This is a convenience function to perform "reddening" or "dereddening" of
+    flux values. It simply performs ``flux * 10**(-0.4 * extinction)``.
+
+    Parameters
+    ----------
+    extinction : numpy.ndarray (1-d)
+        Extinction in magnitudes. (Positive extinction values decrease flux
+        values.)
+    flux : numpy.ndarray (1-d)
+        Flux values. Shape must match extinction.
+    inplace : bool, optional
+        Whether to perform the operation in-place on the flux array. If True,
+        the return value is a reference to the input flux array.
+
+    Returns
+    -------
+    new_flux : numpy.ndarray (1-d)
+        Flux values with extinction applied.
     """
 
     cdef size_t i
