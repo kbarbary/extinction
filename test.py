@@ -100,6 +100,12 @@ def test_fitzpatrick99_knots():
                     rtol=0., atol=0.002)
 
 
+def test_fm07():
+    wave = np.arange(3000, 9000, 1000)
+    ref_values = [ 1.84202329,  1.42645161,  1.13844058,  0.88840962,  0.69220634, 0.54703201]
+    assert_allclose(extinction.fm07(wave, 1.), ref_values)
+
+ 
 def test_calzetti00():
     """Test calzetti against another translation of the same base code"""
     
