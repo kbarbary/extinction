@@ -27,7 +27,6 @@ environment:
 
       - PYTHON_VERSION: "3.5"
         NUMPY_VERSION: "stable"
-        ASTROPY_VERSION: "stable"
 
 
 platform:
