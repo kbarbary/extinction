@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import os
-from distutils.core import setup
-from distutils.extension import Extension
+from setuptools import setup
+from setuptools.extension import Extension
 import re
 
 import numpy
@@ -41,4 +41,4 @@ setup(name="extinction",
       author="Kyle Barbary",
       author_email="kylebarbary@gmail.com",
       ext_modules=extensions,
-      requires=["numpy", "scipy"])
+      install_requires=["numpy", "scipy"])
