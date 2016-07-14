@@ -650,7 +650,7 @@ def calzetti00(double[:] wave, double a_v, double r_v, unit='aa',
 # in-place. (It turns out that this isn't really faster than just doing it
 # in pure python...)
 
-def apply(double[:] extinction, np.ndarray flux not None, bint inplace=False):
+def apply(extinction, flux, inplace=False):
     """apply(extinction, flux, inplace=False)
 
     Apply extinction to flux values (optionally in-place).
@@ -663,8 +663,8 @@ def apply(double[:] extinction, np.ndarray flux not None, bint inplace=False):
     extinction : numpy.ndarray (1-d)
         Extinction in magnitudes. (Positive extinction values decrease flux
         values.)
-    flux : numpy.ndarray (1-d)
-        Flux values. Shape must match extinction.
+    flux : numpy.ndarray
+        Flux values.
     inplace : bool, optional
         Whether to perform the operation in-place on the flux array. If True,
         the return value is a reference to the input flux array.
@@ -675,21 +675,10 @@ def apply(double[:] extinction, np.ndarray flux not None, bint inplace=False):
         Flux values with extinction applied.
     """
 
-    cdef size_t i
-    cdef size_t n = extinction.shape[0]
-    cdef double[:] out_view
-    cdef double[:] flux_view = flux
-
-    if not extinction.shape[0] == flux.shape[0]:
-        raise ValueError("shape of flux and extinction must match")
+    trans = 10.**(-0.4 * extinction)
 
     if inplace:
-        out = flux
+        flux *= trans
+        return flux
     else:
-        out = np.empty(n, dtype=np.float)
-
-    out_view = out
-    for i in range(n):
-        out_view[i] = 10.**(-0.4 * extinction[i]) * flux_view[i]
-
-    return out
+        return flux * trans
