@@ -7,7 +7,7 @@ import numpy as np
 cimport numpy as np
 from scipy.interpolate import splmake, spleval
 
-__version__ = "0.2.1"
+__version__ = "0.2.2"
 
 __all__ = ['ccm89', 'odonnell94', 'Fitzpatrick99', 'fitzpatrick99', 'fm07',
            'calzetti00', 'apply']
