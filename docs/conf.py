@@ -5,7 +5,11 @@
 import sys
 import os
 import sphinx_rtd_theme
+import matplotlib.sphinxext.plot_directive
 import extinction
+
+# ensure that plot helper is on the path
+sys.path.insert(0, os.path.abspath(__file__))
 
 # generate api directory if it doesn't already exist
 if not os.path.exists('api'):
@@ -22,7 +26,8 @@ extensions = [
     'sphinx.ext.autosummary',
     'sphinx.ext.intersphinx',
     'sphinx.ext.mathjax',
-    'numpydoc']
+    'numpydoc',
+    matplotlib.sphinxext.plot_directive.__name__]
 
 numpydoc_show_class_members = False
 autosummary_generate = True
@@ -72,7 +77,7 @@ html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+html_static_path = []
 
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'extinctiondoc'
