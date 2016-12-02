@@ -12,7 +12,7 @@ def test_ccm89():
     # Note that a and b can be obtained with:
     # b = ccm89(wave, 0.)
     # a = ccm89(wave, 1.) - b
-    # 
+    #
     # These differ from the values tablulated in the original paper.
     # Could be due to floating point errors in the original paper?
     #
@@ -40,12 +40,12 @@ def test_odonnell94():
     #
     # This is tested by evaluating the extinction curve at a (given)
     # effective wavelength, since these effective wavelengths:
-    # "... represent(s) that wavelength on the extinction curve 
+    # "... represent(s) that wavelength on the extinction curve
     # with the same extinction as the full passband."
     #
-    # The test does not include UKIRT L' (which, at 3.8 microns) is 
+    # The test does not include UKIRT L' (which, at 3.8 microns) is
     # beyond the range of wavelengths allowed by the function
-    # or the APM b_J filter which is defined in a non-standard way. 
+    # or the APM b_J filter which is defined in a non-standard way.
     #
     # The SFD98 tabulated values go to 1e-3, so we should be able to match at
     # that level.
@@ -86,10 +86,10 @@ def test_fitzpatrick99_knots():
                      2700., 2600.])
     x = np.array([0.0, 0.377, 0.820, 1.667, 1.828, 2.141, 2.433, 3.704,
                   3.846])
-    
+
     # A(lambda) values for E(B-V) = 1 or A_V = 3.1
-    ref_values = np.array([0.0, 0.265, 0.829, 2.688, 3.055, 3.806, 4.315, 6.265,
-                           6.591])
+    ref_values = np.array([0.0, 0.265, 0.829, 2.688, 3.055, 3.806, 4.315,
+                           6.265, 6.591])
 
     assert_allclose(extinction.fitzpatrick99(wave, 3.1, unit='aa'), ref_values,
                     rtol=0., atol=0.001)
@@ -100,20 +100,49 @@ def test_fitzpatrick99_knots():
                     rtol=0., atol=0.002)
 
 
+def test_fitzpatrick99_rv_knots():
+    """Test that Fitzpatrick function has the right R_V dependence at
+    the knots."""
+
+    wave = np.array([26500., 12200., 6000., 5470., 4670., 4110.])
+
+    # "the IR points at 1/lambda < 1 invum are simply scaled by R/3.1"
+    # "the optical points are vertically offset by an amount R - 3.1 , with
+    # slight corrections made to preserve the normalization"
+
+    for r in [1., 2., 3., 4., 5., 6.]:
+        # `expected` gives expected A(lambda) for E(B-V) = 1 (A_V = R)
+        expected = [r / 3.1 * 0.265,      # Table 3 scaled by R/3.1
+                    r / 3.1 * 0.829,      # Table 3 scaled by R/3.1
+                    -0.426 + 1.0044 * r,  # Table 4
+                    -0.050 + 1.0016 * r,  # Table 4
+                    0.701 + 1.0016 * r,   # Table 4
+                    1.208 + 1.0032 * r - 0.00033 * r**2]  # Table 4
+
+        result = extinction.Fitzpatrick99(r)(wave, r)
+
+        # Note that we don't expect an exact match because, as noted in the
+        # code, "the optical spline points are not taken from F99 table 4,
+        # but rather updated versions from E. Fitzpatrick (matching the IDL
+        # astrolib routine FM_UNRED).
+        assert_allclose(result, expected, rtol=0.003)
+
+
 def test_fm07():
-    wave = np.arange(3000, 9000, 1000)
-    ref_values = [ 1.84202329,  1.42645161,  1.13844058,  0.88840962,  0.69220634, 0.54703201]
+    wave = np.arange(3000., 9000., 1000)
+    ref_values = [1.84202329,  1.42645161,  1.13844058,  0.88840962,
+                  0.69220634, 0.54703201]
     assert_allclose(extinction.fm07(wave, 1.), ref_values)
 
- 
+
 def test_calzetti00():
     """Test calzetti against another translation of the same base code"""
-    
+
     wave = np.array([2000., 4000., 8000.])
     flux = np.ones(3)
 
     new_flux = extinction.apply(extinction.calzetti00(wave, -1., 3.1), flux)
-    
+
     # derived using Julia version of IDL calz_unred
     ref_values = np.array([10.5288, 3.88153, 1.61769])
 
