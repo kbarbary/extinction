@@ -5,7 +5,7 @@
 
 import numpy as np
 cimport numpy as np
-from scipy.interpolate import splmake, spleval
+from scipy.interpolate import splrep, splev
 
 __version__ = "0.2.2"
 
@@ -363,7 +363,7 @@ class Fitzpatrick99(object):
         self.r_v = r_v
 
         kknots = _f99_kknots(_F99_XKNOTS, r_v)
-        self._spline = splmake(_F99_XKNOTS, kknots, order=3)
+        self._spline = splrep(_F99_XKNOTS, kknots)
 
     def __call__(self, np.ndarray wave not None, double a_v, unit='aa'):
         cdef double[:] wave_view, out_view
@@ -383,7 +383,7 @@ class Fitzpatrick99(object):
         # Optical/IR spline: evaluate at all wavelengths; we will overwrite
         # the UV points afterwards. These are outside the spline range, so
         # they don't actually take too much time to evaluate.
-        out = spleval(self._spline, wave)  # this is actually "k"
+        out = splev(wave, self._spline)  # this is actually "k"
         
         # Analytic function in the UV (< 2700 Angstroms).
         wave_view = wave
@@ -492,7 +492,7 @@ def _fm07_kknots(double[:] xknots):
 
 _fm07_xknots = np.array([0., 0.25, 0.50, 0.75, 1., 1.e4/5530., 1.e4/4000.,
                         1.e4/3300., 1.e4/2700., 1.e4/2600.])
-_fm07_spline = splmake(_fm07_xknots, _fm07_kknots(_fm07_xknots), order=3)
+_fm07_spline = splrep(_fm07_xknots, _fm07_kknots(_fm07_xknots))
 
 
 def fm07(np.ndarray wave not None, double a_v, unit='aa'):
@@ -540,7 +540,7 @@ def fm07(np.ndarray wave not None, double a_v, unit='aa'):
     # Optical/IR spline: evaluate at all wavelengths; we will overwrite
     # the UV points afterwards. These are outside the spline range, so
     # they don't actually take too much time to evaluate.
-    out = spleval(_fm07_spline, wave)  # this is actually "k"
+    out = splev(wave, _fm07_spline)  # this is actually "k"
         
     # Analytic function in the UV (< 2700 Angstroms).
     wave_view = wave
