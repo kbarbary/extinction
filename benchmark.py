@@ -52,11 +52,11 @@ if 'fitzpatrick99' in args:
     # -----------------------------------------------------------------------
     # Fitzpatrick init
     setup = """
-    import numpy
-    from extinction import F99
-    """
+import numpy
+from extinction import Fitzpatrick99
+"""
 
-    stmt = "F99(3.1)"
+    stmt = "Fitzpatrick99(3.1)"
 
     nloops = 10000
     times = timeit.repeat(stmt, setup=setup, repeat=3, number=nloops)
@@ -74,7 +74,7 @@ from extinction import Fitzpatrick99
 wave = numpy.logspace(numpy.log10({minwave}),
                       numpy.log10({maxwave}),
                       {size:d})
-f = F99(3.1)
+f = Fitzpatrick99(3.1)
 """
 
     stmt = "f(wave, 1.0)"

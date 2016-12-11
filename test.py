@@ -1,6 +1,10 @@
 #!/usr/bin/env py.test
+
+import os
+
 import numpy as np
 from numpy.testing import assert_allclose
+
 import extinction
 
 
@@ -126,6 +130,21 @@ def test_fitzpatrick99_rv_knots():
         # but rather updated versions from E. Fitzpatrick (matching the IDL
         # astrolib routine FM_UNRED).
         assert_allclose(result, expected, rtol=0.003)
+
+
+def test_fitzpatrick99_idl():
+    """Test that result matches implementation in IDL procedure FM_UNRED"""
+
+    for r_v in (2.3, 3.1, 4.0, 5.3):
+        fname = os.path.join('testdata', 'fm_unred_{:3.1f}.dat'.format(r_v))
+        wave, a_lambda_ref = np.loadtxt(fname, unpack=True)
+        a_lambda = extinction.Fitzpatrick99(r_v)(wave, 1.0)
+
+        # currently the results diverge significantly for long wavelengths
+        # because IDL uses a natural cubic spline and we use a spline
+        # with "not-a-knot" boundary conditions.
+        mask = wave < 26500.0
+        assert_allclose(a_lambda[mask], a_lambda_ref[mask], rtol=0.03)
 
 
 def test_fm07():
