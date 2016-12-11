@@ -13,8 +13,12 @@ else:
     USE_CYTHON = False
     fname = "extinction.c"
 
-include_dirs = [numpy.get_include()]
-extensions = [Extension("extinction", [fname], include_dirs=include_dirs)]
+sourcefiles = [fname, os.path.join("extern", "bs.c")]
+dependsfiles = [os.path.join("extern", "bs.h"),
+                os.path.join("extern", "bsplines.pxi")]
+include_dirs = [numpy.get_include(), "extern"]
+extensions = [Extension("extinction", sourcefiles, include_dirs=include_dirs,
+                        depends=dependsfiles)]
 
 if USE_CYTHON:
     from Cython.Build import cythonize
@@ -41,4 +45,4 @@ setup(name="extinction",
       author="Kyle Barbary",
       author_email="kylebarbary@gmail.com",
       ext_modules=extensions,
-      install_requires=["numpy", "scipy"])
+      install_requires=["numpy"])

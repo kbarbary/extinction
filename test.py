@@ -139,20 +139,15 @@ def test_fitzpatrick99_idl():
         fname = os.path.join('testdata', 'fm_unred_{:3.1f}.dat'.format(r_v))
         wave, a_lambda_ref = np.loadtxt(fname, unpack=True)
         a_lambda = extinction.Fitzpatrick99(r_v)(wave, 1.0)
-
-        # currently the results diverge significantly for long wavelengths
-        # because IDL uses a natural cubic spline and we use a spline
-        # with "not-a-knot" boundary conditions.
-        mask = wave < 26500.0
-        assert_allclose(a_lambda[mask], a_lambda_ref[mask], rtol=0.03)
+        assert_allclose(a_lambda, a_lambda_ref, rtol=0.00005)
 
 
 def test_fm07():
     wave = np.arange(3000., 9000., 1000)
 
     # from running the code; we're just checking that results don't change!
-    ref_values = [1.84204643, 1.42645161, 1.13844177, 0.88840907,
-                  0.69220555, 0.54703144]
+    ref_values = [1.84192286, 1.42645161, 1.13842341, 0.88843179, 0.69226384,
+                  0.54709373]
     assert_allclose(extinction.fm07(wave, 1.), ref_values)
 
 

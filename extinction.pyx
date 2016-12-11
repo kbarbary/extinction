@@ -5,12 +5,22 @@
 
 import numpy as np
 cimport numpy as np
-from scipy.interpolate import splrep, splev
 
-__version__ = "0.2.2"
+__version__ = "0.3.0"
 
 __all__ = ['ccm89', 'odonnell94', 'Fitzpatrick99', 'fitzpatrick99', 'fm07',
            'calzetti00', 'apply']
+
+
+# We use some C code for Cubic splines in the Fitzpatrick99 and fm07 functions.
+# There are two reasons for using this over something from scipy:
+#
+# First, Fitzpatrick99 specifies "natural" boundary conditions on the splines,
+# but in scipy.interpolate, this can only be achieved using the CubicSpline
+# class, which is new in scipy v0.18 (a bit too recent).
+#
+# Second, this C code is significantly faster than CubicSpline.
+include "extern/bsplines.pxi"
 
 # ------------------------------------------------------------------------------
 # Utility functions for converting wavelength units
@@ -304,38 +314,38 @@ cdef inline double f99_uv_invum(double x, double a_v, double r_v):
     return a_v * (1. + k / r_v)
 
 
-_F99_XKNOTS = 1.e4 / np.array([np.inf, 26500., 12200., 6000., 5470.,
-                               4670., 4110., 2700., 2600.])
+cdef double *_F99_XKNOTS = [0.0, 1.e4 / 26500., 1.e4 / 12200., 1.e4 / 6000.,
+                            1.e4 / 5470., 1.e4 / 4670., 1.e4 / 4110.,
+                            1.e4 / 2700., 1.e4 / 2600.]
 
 
-def _f99_kknots(double[:] xknots, double r_v):
+cdef void _f99_kknots(double *xknots, double r_v, double *out):
+    """Fill knot k values in Fitzpatrick 99 for given R_V.
+    xknots and out should be arrays of length 9."""
+
     cdef double c1, c2, d, x, x2, y, rv2
-    cdef double[:] kknots_view
     cdef int i
+
     c2 =  -0.824 + 4.717 / r_v
     c1 =  2.030 - 3.007 * c2
     rv2 = r_v * r_v
 
-    kknots = np.empty(9, dtype=np.float)
-    kknots_view = kknots
-    kknots_view[0] = -r_v
-    kknots_view[1] = 0.26469 * r_v/3.1 - r_v
-    kknots_view[2] = 0.82925 * r_v/3.1 - r_v
-    kknots_view[3] = -0.422809 + 1.00270*r_v + 2.13572e-04*rv2 - r_v
-    kknots_view[4] = -5.13540e-02 + 1.00216 * r_v - 7.35778e-05*rv2 - r_v
-    kknots_view[5] = 0.700127 + 1.00184*r_v - 3.32598e-05*rv2 - r_v
-    kknots_view[6] = (1.19456 + 1.01707*r_v - 5.46959e-03*rv2 +
-                      7.97809e-04 * rv2 * r_v - 4.45636e-05 * rv2*rv2 - r_v)
+    out[0] = -r_v
+    out[1] = 0.26469 * r_v/3.1 - r_v
+    out[2] = 0.82925 * r_v/3.1 - r_v
+    out[3] = -0.422809 + 1.00270*r_v + 2.13572e-04*rv2 - r_v
+    out[4] = -5.13540e-02 + 1.00216 * r_v - 7.35778e-05*rv2 - r_v
+    out[5] = 0.700127 + 1.00184*r_v - 3.32598e-05*rv2 - r_v
+    out[6] = (1.19456 + 1.01707*r_v - 5.46959e-03*rv2 +
+              7.97809e-04 * rv2 * r_v - 4.45636e-05 * rv2*rv2 - r_v)
     for i in range(7,9):
         x2 = xknots[i] * xknots[i]
         y = (x2 - F99_X02)
-        d = x2 /(y * y + x2 * F99_GAMMA2)
-        kknots_view[i] = c1 + c2*xknots[i] + F99_C3 * d
-
-    return kknots
+        d = x2 / (y * y + x2 * F99_GAMMA2)
+        out[i] = c1 + c2*xknots[i] + F99_C3 * d
 
 
-class Fitzpatrick99(object):
+cdef class Fitzpatrick99(object):
     """Fitzpatrick (1999) dust extinction function for arbitrary R_V.
 
     An instance of this class is a callable that can be used as
@@ -359,11 +369,32 @@ class Fitzpatrick99(object):
 
     """
 
-    def __init__(self, r_v=3.1):
+    cdef bs_spline1d *spline   # pointer to c struct
+    cdef readonly double r_v
+    
+    def __cinit__(self, double r_v=3.1):
         self.r_v = r_v
 
-        kknots = _f99_kknots(_F99_XKNOTS, r_v)
-        self._spline = splrep(_F99_XKNOTS, kknots)
+        cdef double *kknots = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        _f99_kknots(_F99_XKNOTS, r_v, kknots)
+
+        cdef bs_bcs bcs
+        cdef bs_exts exts
+        cdef bs_errorcode code
+
+        bcs.left.type = BS_DERIV2
+        bcs.left.value = 0.0
+        bcs.right.type = BS_DERIV2
+        bcs.right.value = 0.0
+        exts.left.type = BS_VALUE
+        exts.left.value = 0.0
+        exts.right.type = BS_VALUE
+        exts.right.value = 0.0
+        code = bs_spline1d_create(bs_array(_F99_XKNOTS, 9, 1),
+                                  bs_array(kknots, 9, 1),
+                                  bcs, exts, &self.spline)
+        assert_ok(code)
+
 
     def __call__(self, np.ndarray wave not None, double a_v, unit='aa'):
         cdef double[:] wave_view, out_view
@@ -371,7 +402,8 @@ class Fitzpatrick99(object):
         cdef double ebv = a_v / r_v
         cdef size_t i
         cdef size_t n
-
+        cdef bs_errorcode code
+        
         # translate `wave` to inverse microns
         if unit == 'invum':
             pass
@@ -380,15 +412,21 @@ class Fitzpatrick99(object):
         else:
             raise ValueError("unrecognized unit")
 
+        n = wave.shape[0]
+        out = np.empty(n, dtype=np.float64)
+
+        wave_view = wave
+        out_view = out
+
         # Optical/IR spline: evaluate at all wavelengths; we will overwrite
         # the UV points afterwards. These are outside the spline range, so
         # they don't actually take too much time to evaluate.
-        out = splev(wave, self._spline)  # this is actually "k"
+        # (outview actually holds "k" after this call; see below)
+        code = bs_spline1d_eval(self.spline, to_bs_array(wave_view),
+                                to_bs_array(out_view))
+        assert_ok(code)
         
         # Analytic function in the UV (< 2700 Angstroms).
-        wave_view = wave
-        out_view = out
-        n = wave.shape[0]
         for i in range(n):
             # for optical/IR, `out` is actually k, but we wanted
             # a_v/r_v * (k+r_v), so we adjust here.
@@ -400,6 +438,9 @@ class Fitzpatrick99(object):
                 out_view[i] = f99_uv_invum(wave_view[i], a_v, r_v)
 
         return out
+
+    def __dealloc__(self):
+        bs_spline1d_free(self.spline)
 
 
 # functional interface for Fitzpatrick (1999) with R_V = 3.1
@@ -471,28 +512,28 @@ cdef inline double fm07_uv_invum(double x, double a_v):
     return a_v * (1. + k / FM07_R_V)
 
 
-def _fm07_kknots(double[:] xknots):
+cdef void _fm07_kknots(double *xknots, double *out):
+    """Return k knots given xknots for fm07. (Could be a static array)"""
     cdef double d
-    cdef int i, n
+    cdef int i
 
-    n = xknots.shape[0]
-    kknots = np.empty(n, dtype=np.float)
     for i in range(0, 5):
-        kknots[i] = (-0.83 + 0.63*FM07_R_V) * xknots[i]**1.84 - FM07_R_V
-    kknots[5] = 0.
-    kknots[6] = 1.322
-    kknots[7] = 2.055
+        out[i] = (-0.83 + 0.63*FM07_R_V) * xknots[i]**1.84 - FM07_R_V
+    out[5] = 0.0
+    out[6] = 1.322
+    out[7] = 2.055
     for i in range(8, 10):
         d = xknots[i]**2 / ((xknots[i]**2 - FM07_X02)**2 +
                             xknots[i]**2 * FM07_GAMMA2)
-        kknots[i] = FM07_C1 + FM07_C2 * xknots[i] + FM07_C3 * d
-
-    return kknots
+        out[i] = FM07_C1 + FM07_C2 * xknots[i] + FM07_C3 * d
 
 
-_fm07_xknots = np.array([0., 0.25, 0.50, 0.75, 1., 1.e4/5530., 1.e4/4000.,
-                        1.e4/3300., 1.e4/2700., 1.e4/2600.])
-_fm07_spline = splrep(_fm07_xknots, _fm07_kknots(_fm07_xknots))
+cdef double *_FM07_XKNOTS = [0., 0.25, 0.50, 0.75, 1., 1.e4 / 5530.,
+                             1.e4 / 4000., 1.e4 / 3300., 1.e4 / 2700.,
+                             1.e4 / 2600.]
+cdef double *_FM07_KKNOTS = [0., 0., 0., 0., 0.,
+                             0., 0., 0., 0., 0.]
+_fm07_kknots(_FM07_XKNOTS, _FM07_KKNOTS)
 
 
 def fm07(np.ndarray wave not None, double a_v, unit='aa'):
@@ -537,15 +578,42 @@ def fm07(np.ndarray wave not None, double a_v, unit='aa'):
     else:
         raise ValueError("unrecognized unit")
 
+    # create the spline (we do this here rather than globally so we can
+    # deallocate it.)
+    cdef bs_spline1d* spline
+    cdef bs_bcs bcs
+    cdef bs_exts exts
+    cdef bs_errorcode code
+
+    bcs.left.type = BS_DERIV2
+    bcs.left.value = 0.0
+    bcs.right.type = BS_DERIV2
+    bcs.right.value = 0.0
+    exts.left.type = BS_VALUE
+    exts.left.value = 0.0
+    exts.right.type = BS_VALUE
+    exts.right.value = 0.0
+    code = bs_spline1d_create(bs_array(_FM07_XKNOTS, 10, 1),
+                              bs_array(_FM07_KKNOTS, 10, 1),
+                              bcs, exts, &spline)
+    assert_ok(code)
+
+    n = wave.shape[0]
+    out = np.empty(n, dtype=np.float64)
+
+    wave_view = wave
+    out_view = out
+
     # Optical/IR spline: evaluate at all wavelengths; we will overwrite
     # the UV points afterwards. These are outside the spline range, so
     # they don't actually take too much time to evaluate.
-    out = splev(wave, _fm07_spline)  # this is actually "k"
-        
+    # (outview actually holds "k" after this call; see below)
+    code = bs_spline1d_eval(spline, to_bs_array(wave_view),
+                            to_bs_array(out_view))
+    assert_ok(code)
+    bs_spline1d_free(spline)
+    
     # Analytic function in the UV (< 2700 Angstroms).
-    wave_view = wave
-    out_view = out
-    n = wave.shape[0]
     for i in range(n):
         # for optical/IR, `out` is actually k, but we wanted
         # a_v/r_v * (k+r_v), so we adjust here.
