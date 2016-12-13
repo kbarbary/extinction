@@ -142,6 +142,15 @@ def test_fitzpatrick99_idl():
         assert_allclose(a_lambda, a_lambda_ref, rtol=0.00005)
 
 
+def test_fitzpatrick99_r_v():
+    """Test that we can access the `r_v` attribute."""
+
+    f = extinction.Fitzpatrick99()
+    assert f.r_v == 3.1
+    f = extinction.Fitzpatrick99(2.1)
+    assert f.r_v == 2.1
+
+
 def test_fm07():
     wave = np.arange(3000., 9000., 1000)
 
