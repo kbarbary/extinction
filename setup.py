@@ -18,7 +18,7 @@ dependsfiles = [os.path.join("extern", "bs.h"),
                 os.path.join("extern", "bsplines.pxi")]
 include_dirs = [numpy.get_include(), "extern"]
 extensions = [Extension("extinction", sourcefiles, include_dirs=include_dirs,
-                        depends=dependsfiles)]
+                        depends=dependsfiles, extra_compile_args=['-std=c99'])]
 
 if USE_CYTHON:
     from Cython.Build import cythonize
