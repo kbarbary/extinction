@@ -151,6 +151,15 @@ def test_fitzpatrick99_r_v():
     assert f.r_v == 2.1
 
 
+def test_fitzpatrick99_func():
+    """Check passing R_V."""
+
+    wave = np.array([2000., 30000.])
+    for r_v in (3.1, 4.0):
+        assert np.all(extinction.Fitzpatrick99(r_v)(wave, 1.0) ==
+                      extinction.fitzpatrick99(wave, 1.0, r_v))
+
+
 def test_fm07():
     wave = np.arange(3000., 9000., 1000)
 

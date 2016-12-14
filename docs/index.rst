@@ -61,25 +61,16 @@ Get extinction in magnitudes at a set of wavelengths for various dust laws::
   >>> extinction.odonnell94(wave, 1.0, 3.1)
   array([ 2.84252644,  1.42617802,  0.60793495])
 
+  # Fitzpatrick (1999)
+  >>> extinction.fitzpatrick99(wave, 1.0, 3.1)
+  array([ 2.76225609,  1.79674653,  1.42325373])
 
-The Fitzpatrick (1999) and Fitzpatrick & Massa (2007) functions have fixed
-:math:`R_V` of 3.1::
-        
-   # Fitzpatrick (1999) for fixed R_V = 3.1
-   >>> extinction.fitzpatrick99(wave, 1.0)
-   array([ 2.76225609,  1.42338583,  0.55346406])
+
+The Fitzpatrick & Massa (2007) function has a fixed :math:`R_V` of 3.1::
 
    >>> extinction.fm07(wave, 1.0)
    array([ 2.90478329,  1.42645161,  0.54703201])
    
-   # Fitzpatrick (1999) can also be used with other R_V values.
-   # First, construct a function for a given R_V value (note capital "F"):
-   >>> f = extinction.Fitzpatrick99(2.1)
-
-   # Then, call the function:
-   >>> f(wave, 1.0)
-   array([ 4.28908428,  1.6266948 ,  0.47992809])
-
 All extinction laws accept a ``unit`` keyword to change the interpretation of
 the wavelength array from Angstroms to inverse microns::
 
@@ -87,7 +78,11 @@ the wavelength array from Angstroms to inverse microns::
 
   >>> extinction.ccm89(wave, 1.0, 3.1, unit='invum')
   array([ 2.84252644,  1.4645557 ,  0.59748901])  # extinction in magnitudes
-   
+
+
+Redden or deredden
+..................
+
 To "redden" or "deredden" flux values by some amount, use the
 ``apply`` convenience function::
 

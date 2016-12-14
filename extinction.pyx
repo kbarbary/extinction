@@ -447,10 +447,10 @@ cdef class Fitzpatrick99(object):
 _fitzpatrick99_fixed = Fitzpatrick99(3.1)
 
 
-def fitzpatrick99(wave, a_v, unit='aa'):
-    """fitzpatrick99(wave, a_v, unit='aa')
+def fitzpatrick99(wave, a_v, r_v=3.1, unit='aa'):
+    """fitzpatrick99(wave, a_v, r_v=3.1, unit='aa')
 
-    Fitzpatrick (1999) dust extinction function for R_V = 3.1.
+    Fitzpatrick (1999) dust extinction function.
 
     Fitzpatrick (1999) [1]_ model which relies on the parametrization
     of Fitzpatrick & Massa (1990) [2]_ in the UV (below 2700 A) and
@@ -467,6 +467,8 @@ def fitzpatrick99(wave, a_v, unit='aa'):
         Input wavelengths or wavenumbers (see units).
     a_v : float
         Total V-band extinction in magnitudes.
+    r_v : float
+        Ratio of total to selective extinction, A_V / E(B-V).
     unit : {'aa', 'invum'}, optional
         Wavelength units: Angstroms or inverse microns.
 
@@ -479,8 +481,10 @@ def fitzpatrick99(wave, a_v, unit='aa'):
     .. [1] Fitzpatrick, E. L. 1999, PASP, 111, 63
     .. [2] Fitzpatrick, E. L. & Massa, D. 1990, ApJS, 72, 163
     """
-    return _fitzpatrick99_fixed(wave, a_v, unit=unit)
-
+    if r_v == 3.1:
+        return _fitzpatrick99_fixed(wave, a_v, unit=unit)
+    else:
+        return Fitzpatrick99(r_v)(wave, a_v, unit=unit)
 
 # -----------------------------------------------------------------------------
 # Fitzpatrick & Massa 2007
