@@ -36,6 +36,7 @@ Usage
    extinction.fitzpatrick99
    extinction.fm07
    extinction.apply
+   extinction.correct
 
 **Classes:**
 
@@ -84,7 +85,7 @@ Redden or deredden
 ..................
 
 To "redden" or "deredden" flux values by some amount, use the
-``apply`` convenience function::
+``apply`` and ``correct`` convenience functions::
 
 
   >>> from extinction import ccm89, apply
@@ -96,7 +97,7 @@ To "redden" or "deredden" flux values by some amount, use the
   array([ 0.07294397,  0.25952412,  0.5767723 ])
 
   # "deredden" flux by A_V = 1.0
-  >>> apply(ccm89(wave, -1.0, 3.1), flux)
+  >>> correct(ccm89(wave, 1.0, 3.1), flux)
   array([ 13.70915145,   3.85320647,   1.73378645])
 
 
