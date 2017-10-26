@@ -9,7 +9,7 @@ cimport numpy as np
 __version__ = "0.3.0"
 
 __all__ = ['ccm89', 'odonnell94', 'Fitzpatrick99', 'fitzpatrick99', 'fm07',
-           'calzetti00', 'apply']
+           'calzetti00', 'apply', 'remove']
 
 
 # We use some C code for Cubic splines in the Fitzpatrick99 and fm07 functions.
@@ -748,6 +748,43 @@ def apply(extinction, flux, inplace=False):
     """
 
     trans = 10.**(-0.4 * extinction)
+
+    if inplace:
+        flux *= trans
+        return flux
+    else:
+        return flux * trans
+
+# ------------------------------------------------------------------------------
+# convenience function for removing extinction from flux values, optionally
+# in-place. (It turns out that this isn't really faster than just doing it
+# in pure python...)
+
+def remove(extinction, flux, inplace=False):
+    """remove(extinction, flux, inplace=False)
+
+    Remove extinction from observed flux values (optionally in-place).
+
+    This is a convenience function to "deredden" fluxes. It simply performs 
+    ``flux * 10**(0.4 * extinction)``.
+
+    Parameters
+    ----------
+    extinction : numpy.ndarray (1-d)
+        Extinction in magnitudes.
+    flux : numpy.ndarray
+        Flux values.
+    inplace : bool, optional
+        Whether to perform the operation in-place on the flux array. If True,
+        the return value is a reference to the input flux array.
+
+    Returns
+    -------
+    new_flux : numpy.ndarray (1-d)
+        Flux values with extinction removed.
+    """
+
+    trans = 10.**(0.4 * extinction)
 
     if inplace:
         flux *= trans
