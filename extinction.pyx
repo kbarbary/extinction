@@ -6,7 +6,7 @@
 import numpy as np
 cimport numpy as np
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 __all__ = ['ccm89', 'odonnell94', 'Fitzpatrick99', 'fitzpatrick99', 'fm07',
            'calzetti00', 'apply', 'remove']
@@ -718,17 +718,18 @@ def calzetti00(double[:] wave, double a_v, double r_v, unit='aa',
 
 
 # ------------------------------------------------------------------------------
-# convenience function for applying extinction to flux values, optionally
-# in-place. (It turns out that this isn't really faster than just doing it
-# in pure python...)
+# convenience functions for applying/removing extinction to/from flux
+# values, optionally in-place. It turns out that pure Python is about as
+# fast as C here.
 
 def apply(extinction, flux, inplace=False):
     """apply(extinction, flux, inplace=False)
 
-    Apply extinction to flux values (optionally in-place).
+    Apply extinction to flux values.
 
-    This is a convenience function to perform "reddening" or "dereddening" of
-    flux values. It simply performs ``flux * 10**(-0.4 * extinction)``.
+    This is a convenience function to perform "reddening" of
+    flux values. It simply performs ``flux * 10**(-0.4 * extinction)``:
+    flux is decreased (for positive extinction values).
 
     Parameters
     ----------
@@ -763,10 +764,11 @@ def apply(extinction, flux, inplace=False):
 def remove(extinction, flux, inplace=False):
     """remove(extinction, flux, inplace=False)
 
-    Remove extinction from observed flux values (optionally in-place).
+    Remove extinction from flux values.
 
     This is a convenience function to "deredden" fluxes. It simply performs 
-    ``flux * 10**(0.4 * extinction)``.
+    ``flux * 10**(0.4 * extinction)``: flux is increased (for positive
+    extinction values).
 
     Parameters
     ----------
