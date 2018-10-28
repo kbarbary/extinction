@@ -5,23 +5,23 @@ sudo: false
 
 env:
     global:
-        - PYTHON_VERSION=3.5
-        - NUMPY_VERSION=1.10
-        - MINICONDA_URL=http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh
+        - PYTHON_VERSION=3.6
+        - NUMPY_VERSION=1.15
+        - MINICONDA_URL=http://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
 
 
 matrix:
     include:
-        - env: PYTHON_VERSION=2.7 NUMPY_VERSION=1.8
-        - env: PYTHON_VERSION=2.7 NUMPY_VERSION=1.9
-        - env: PYTHON_VERSION=2.7 NUMPY_VERSION=1.10
-        - env: PYTHON_VERSION=3.4 NUMPY_VERSION=1.10
+        - env: PYTHON_VERSION=2.7 NUMPY_VERSION=1.12
+        - env: PYTHON_VERSION=3.5 NUMPY_VERSION=1.12
+        - env: PYTHON_VERSION=3.6
+        - env: PYTHON_VERSION=3.7
         - os: osx
-          env: PYTHON_VERSION=2.7 NUMPY_VERSION=1.10
-               MINICONDA_URL=http://repo.continuum.io/miniconda/Miniconda-3.7.3-MacOSX-x86_64.sh
+          env: PYTHON_VERSION=2.7
+               MINICONDA_URL=http://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
         - os: osx
-          env: PYTHON_VERSION=3.5 NUMPY_VERSION=1.10
-               MINICONDA_URL=http://repo.continuum.io/miniconda/Miniconda-3.7.3-MacOSX-x86_64.sh
+          env: PYTHON_VERSION=3.7
+               MINICONDA_URL=http://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
 
 before_install:
     - wget $MINICONDA_URL -O miniconda.sh
