@@ -29,7 +29,6 @@ version = re.findall(r"__version__ = \"(.*?)\"", open(fname).read())[0]
 
 classifiers = [
     "Development Status :: 4 - Beta",
-    "Programming Language :: Python :: 2",
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Topic :: Scientific/Engineering :: Astronomy",
