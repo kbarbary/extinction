@@ -6,7 +6,7 @@
 import numpy as np
 cimport numpy as np
 
-__version__ = "0.4.1"
+__version__ = "0.4.2"
 
 __all__ = ['ccm89', 'odonnell94', 'Fitzpatrick99', 'fitzpatrick99', 'fm07',
            'calzetti00', 'apply', 'remove']
