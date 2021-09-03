@@ -17,10 +17,11 @@ classifiers = [
 ]
 
 # Synchronize version from code.
+fname = "extinction.pyx"
 version = re.findall(r"__version__ = \"(.*?)\"", open(fname).read())[0]
 
 # Build Cython extension
-source_files = ["extinction.pyx", os.path.join("extern", "bs.c")]
+source_files = [fname, os.path.join("extern", "bs.c")]
 depends_files = [
     os.path.join("extern", "bs.h"),
     os.path.join("extern", "bsplines.pxi")
