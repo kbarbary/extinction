@@ -69,3 +69,7 @@ target/
 
 # emacs
 *~
+
+# Pipenv
+Pipfile
+Pipfile.lock

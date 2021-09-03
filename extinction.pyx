@@ -154,10 +154,10 @@ def ccm89(double[:] wave, double a_v, double r_v, unit='aa',
         double b = 0.0
 
     if out is None:
-        out = np.empty(n, dtype=np.float)
+        out = np.empty(n, dtype=np.float64)
     else:
         assert out.shape == wave.shape
-        assert out.dtype == np.float
+        assert out.dtype == np.float64
 
     cdef scalar_func convert_wave
     if unit == 'aa':
@@ -262,10 +262,10 @@ def odonnell94(double[:] wave, double a_v, double r_v, unit='aa',
         double b = 0.0
 
     if out is None:
-        out = np.empty(n, dtype=np.float)
+        out = np.empty(n, dtype=np.float64)
     else:
         assert out.shape == wave.shape
-        assert out.dtype == np.float
+        assert out.dtype == np.float64
 
     cdef scalar_func convert_wave
     if unit == 'aa':
@@ -697,10 +697,10 @@ def calzetti00(double[:] wave, double a_v, double r_v, unit='aa',
         double b = 0.0
 
     if out is None:
-        out = np.empty(n, dtype=np.float)
+        out = np.empty(n, dtype=np.float64)
     else:
         assert out.shape == wave.shape
-        assert out.dtype == np.float
+        assert out.dtype == np.float64
 
     cdef scalar_func convert_wave
     if unit == 'aa':
